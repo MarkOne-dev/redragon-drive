@@ -31,27 +31,36 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
   const [liveTestHz, setLiveTestHz] = useState<number>(0);
   const [peakTestHz, setPeakTestHz] = useState<number>(0);
 
-  // Moving-window rate calculation on canvas movement
+  // Moving-window rate calculation on canvas movement using Pointer Events + Coalesced Events
   const lastMoveTimestamp = useRef<number>(0);
   const intervalsRef = useRef<number[]>([]);
 
-  const handleMouseMove = (_e: React.MouseEvent) => {
-    const now = performance.now();
-    if (lastMoveTimestamp.current > 0) {
-      const deltaMs = now - lastMoveTimestamp.current;
-      if (deltaMs > 0 && deltaMs < 100) {
-        const hz = Math.round(1000 / deltaMs);
-        intervalsRef.current.push(hz);
-        if (intervalsRef.current.length > 10) intervalsRef.current.shift();
+  const handlePointerMove = (e: React.PointerEvent) => {
+    // getCoalescedEvents delivers unthrottled sub-frame raw hardware reports if available
+    const native = e.nativeEvent as PointerEvent;
+    const events: (PointerEvent | React.PointerEvent)[] =
+      typeof native.getCoalescedEvents === 'function' && native.getCoalescedEvents().length > 0
+        ? native.getCoalescedEvents()
+        : [e];
 
-        const avgHz = Math.round(
-          intervalsRef.current.reduce((a, b) => a + b, 0) / intervalsRef.current.length
-        );
-        setLiveTestHz(avgHz);
-        setPeakTestHz((prev) => Math.max(prev, avgHz));
+    for (const sub of events) {
+      const now = sub.timeStamp || performance.now();
+      if (lastMoveTimestamp.current > 0) {
+        const deltaMs = now - lastMoveTimestamp.current;
+        if (deltaMs > 0.1 && deltaMs < 100) {
+          const hz = Math.round(1000 / deltaMs);
+          intervalsRef.current.push(hz);
+          if (intervalsRef.current.length > 20) intervalsRef.current.shift();
+
+          const avgHz = Math.round(
+            intervalsRef.current.reduce((a, b) => a + b, 0) / intervalsRef.current.length
+          );
+          setLiveTestHz(avgHz);
+          setPeakTestHz((prev) => Math.max(prev, hz));
+        }
       }
+      lastMoveTimestamp.current = now;
     }
-    lastMoveTimestamp.current = now;
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -185,7 +194,7 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
           </div>
 
           <div
-            onMouseMove={handleMouseMove}
+            onPointerMove={handlePointerMove}
             className="h-44 rounded-xl border-2 border-dashed border-red-500/40 bg-red-950/10 hover:bg-red-950/20 transition-colors flex flex-col items-center justify-center cursor-crosshair relative"
           >
             <Move className="size-6 text-red-500/60 mb-2 animate-bounce" />
@@ -209,6 +218,10 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
                 {peakTestHz} Hz
               </div>
             </div>
+          </div>
+
+          <div className="text-[11px] text-muted-foreground bg-muted/30 border border-border/40 rounded-lg p-2.5 leading-relaxed">
+            <span className="font-semibold text-foreground">💡 Note on Polling Rate & Screen V-Sync:</span> The mouse hardware communicates with the USB bus at <span className="text-red-400 font-mono">1000 Hz (1ms)</span>. In webviews and browsers, standard UI cursor events are synchronized with your monitor refresh rate (e.g. 60Hz = ~16.6ms intervals). Coalesced high-speed hardware reports are aggregated per display frame.
           </div>
         </div>
       </div>

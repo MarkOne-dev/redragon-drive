@@ -1,0 +1,29 @@
+# Maintainer: MarkOne-dev <u202419485@upc.edu.pe>
+pkgname=redragon-m916-suite-bin
+pkgver=0.3.0
+pkgrel=1
+pkgdesc="High-performance gaming mouse management suite for Redragon M916-PRO 1K"
+arch=('x86_64')
+url="https://github.com/MarkOne-dev/redragon-drive"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'libsoup3' 'openssl' 'libappindicator-gtk3')
+provides=('redragon-m916-suite' 'redragon-app')
+conflicts=('redragon-m916-suite')
+source=("https://github.com/MarkOne-dev/redragon-drive/releases/download/v${pkgver}/Redragon%20M916%20Suite_${pkgver}_amd64.deb")
+sha256sums=('042faacc6492a3be03dede36362ec755be404f37c9c13a5ffbffad23cb856463')
+
+package() {
+    # Extract binary payload from Debian package
+    tar -xf data.tar.gz -C "${pkgdir}/"
+
+    # Install udev rule for non-root hardware communication
+    install -d "${pkgdir}/usr/lib/udev/rules.d"
+    cat <<EOF > "${pkgdir}/usr/lib/udev/rules.d/99-redragon.rules"
+# Redragon M916-PRO / Compx HID raw device permissions
+KERNEL=="hidraw*", ATTRS{idVendor}=="3554", MODE="0666", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="3554", MODE="0666", TAG+="uaccess"
+EOF
+
+    # Symlink to easy command name if desired
+    ln -sf /usr/bin/redragon-app "${pkgdir}/usr/bin/redragon-m916-suite"
+}

@@ -29,6 +29,7 @@ export type ButtonActionType =
   | 'Shortcut'
   | 'Macro'
   | 'PollingRateCycle'
+  | 'ProfileSwitch'
   | 'SniperLock';
 
 export type ButtonAction =
@@ -38,8 +39,9 @@ export type ButtonAction =
   | { type: 'Media'; action: 'VolumeUp' | 'VolumeDown' | 'Mute' | 'PlayPause' | 'Next' | 'Previous' }
   | { type: 'FireKey'; clicks: number; interval_ms: number }
   | { type: 'Shortcut'; modifiers: number; key: number }
-  | { type: 'Macro'; macro_id: number }
+  | { type: 'Macro'; macro_id: number; loop_count?: number }
   | { type: 'PollingRateCycle' }
+  | { type: 'ProfileSwitch' }
   | { type: 'SniperLock'; dpi: number };
 
 export interface SensorConfig {
@@ -70,18 +72,37 @@ export interface MouseStats {
 
 export type PairingState =
   | { state: 'Idle' }
-  | { state: 'Searching'; elapsed_secs: number }
+  | { state: 'Searching'; elapsed_secs?: number }
+  | { state: 'Pairing'; seconds_elapsed?: number }
   | { state: 'Synchronizing' }
-  | { state: 'Success'; pid: number }
-  | { state: 'Failed'; error: string }
+  | { state: 'Success'; vid?: number; pid: number }
+  | { state: 'Failed'; error?: string }
+  | { state: 'Timeout' }
+  | { state: 'ReadFailed' }
   | { state: 'Cancelled' };
 
 export interface AppConfig {
+  auto_pair?: boolean;
   auto_pair_on_insert: boolean;
   custom_pids: string[];
   default_polling_rate: number;
   default_dpi_stage: number;
+  polling_rate_super_font?: boolean;
+  zoom_step?: number;
   language: string;
+  dark_mode?: boolean;
 }
 
 export type RfTestMode = 'LowCarrier' | 'MtkMode' | 'AllReceived';
+
+export type DeviceEvent =
+  | { type: 'Connected'; payload: DeviceInfo }
+  | { type: 'Disconnected'; payload: string };
+
+export interface DeviceFullState {
+  device: DeviceInfo | null;
+  battery: BatteryInfo;
+  polling_rate: number;
+  current_dpi_stage: number;
+  sensor: SensorConfig;
+}

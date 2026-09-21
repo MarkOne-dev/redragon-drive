@@ -54,8 +54,19 @@ export function App() {
     max_polling_rate: 1000,
   });
 
+  const [activeProfile, setActiveProfile] = useState<number>(() => {
+    const saved = localStorage.getItem('rd_active_profile');
+    return saved ? Number(saved) : 1;
+  });
+
   const [pollingRate, setPollingRate] = useState<PollingRateHz>(1000);
-  const [dpiStages, setDpiStages] = useState<DpiStageConfig[]>(DEFAULT_DPI_STAGES);
+  const [dpiStages, setDpiStages] = useState<DpiStageConfig[]>(() => {
+    const saved = localStorage.getItem('rd_profile_1_dpi');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return DEFAULT_DPI_STAGES;
+  });
   const [activeStageIndex, setActiveStageIndex] = useState<number>(2); // Default to 1600 DPI
   const [sensorConfig, setSensorConfig] = useState<SensorConfig>(DEFAULT_SENSOR_CONFIG);
   const [buttonMappings, setButtonMappings] = useState<Record<number, ButtonAction>>({});
@@ -68,7 +79,18 @@ export function App() {
     language: 'en',
   });
 
-  // Scan for connected Compx / Redragon mice
+  const handleSelectProfile = (p: number) => {
+    setActiveProfile(p);
+    localStorage.setItem('rd_active_profile', String(p));
+    const savedDpi = localStorage.getItem(`rd_profile_${p}_dpi`);
+    if (savedDpi) {
+      try {
+        setDpiStages(JSON.parse(savedDpi));
+      } catch {}
+    }
+  };
+
+  // Scan for connected Compx / Redragon mice and hydrate full state
   const scanDevices = useCallback(async () => {
     setIsScanning(true);
     try {
@@ -77,7 +99,10 @@ export function App() {
         const primary = devices[0];
         setDevice(primary);
         await mouseApi.connectDevice(primary.path);
-        await mouseApi.queryBattery();
+        const fullState = await mouseApi.getDeviceFullState();
+        if (fullState.battery) setBattery(fullState.battery);
+        if (fullState.polling_rate) setPollingRate(fullState.polling_rate as PollingRateHz);
+        if (fullState.sensor) setSensorConfig(fullState.sensor);
       } else {
         setDevice(null);
       }
@@ -98,11 +123,13 @@ export function App() {
     setPollingRate(hz);
   };
 
-  const handleUpdateDpiStage = async (stageIdx: number, dpi: number, rgb: [number, number, number]) => {
-    await mouseApi.setDpi(stageIdx, dpi, rgb[0], rgb[1], rgb[2]);
-    setDpiStages((prev) =>
-      prev.map((s, idx) => (idx === stageIdx ? { ...s, dpi_x: dpi, dpi_y: dpi, rgb } : s))
-    );
+  const handleUpdateDpiStage = async (stageIdx: number, dpiX: number, dpiY: number, rgb: [number, number, number]) => {
+    await mouseApi.setDpi(stageIdx, dpiX, rgb[0], rgb[1], rgb[2]);
+    setDpiStages((prev) => {
+      const updated = prev.map((s, idx) => (idx === stageIdx ? { ...s, dpi_x: dpiX, dpi_y: dpiY, rgb } : s));
+      localStorage.setItem(`rd_profile_${activeProfile}_dpi`, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleSaveButton = async (buttonIdx: number, action: ButtonAction) => {
@@ -140,8 +167,10 @@ export function App() {
 
   const handleRefreshBattery = async () => {
     try {
-      await mouseApi.queryBattery();
-      setBattery((prev) => ({ ...prev, percentage: Math.max(10, prev.percentage) }));
+      const bat = await mouseApi.queryBattery();
+      if (bat && bat.percentage > 0) {
+        setBattery(bat);
+      }
     } catch (err) {
       console.error('Failed to query battery:', err);
     }
@@ -152,18 +181,34 @@ export function App() {
     setConfig(newCfg);
   };
 
-  // Initial load
+  // Initial load and hotplug event subscription
   useEffect(() => {
     scanDevices();
     mouseApi.getConfig().then(setConfig).catch(console.error);
 
+    // Subscribe to hotplug USB events
+    let unlistenFn: (() => void) | null = null;
+    mouseApi.onDeviceChanged((event) => {
+      if (event.type === 'Connected') {
+        scanDevices();
+      } else if (event.type === 'Disconnected') {
+        setDevice(null);
+      }
+    }).then((unlisten) => {
+      unlistenFn = unlisten;
+    });
+
     // Periodic telemetry refresh
     const timer = setInterval(() => {
       handleRefreshStats();
+      handleRefreshBattery();
       mouseApi.getPairingStatus().then(setPairingStatus).catch(() => {});
-    }, 2000);
+    }, 3000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      if (unlistenFn) unlistenFn();
+    };
   }, [scanDevices]);
 
   const activeStage = dpiStages[activeStageIndex] || dpiStages[0];
@@ -178,6 +223,8 @@ export function App() {
         isScanning={isScanning}
         onScan={scanDevices}
         onDisconnect={handleDisconnect}
+        activeProfile={activeProfile}
+        onSelectProfile={handleSelectProfile}
       />
 
       {/* Main App Workspace */}

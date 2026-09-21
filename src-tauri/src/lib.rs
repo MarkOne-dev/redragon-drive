@@ -10,6 +10,7 @@ pub use driver::*;
 pub use protocols::*;
 pub use services::*;
 
+use tauri::{Emitter, Manager};
 use tauri_plugin_log::{Target, TargetKind};
 
 pub fn run() {
@@ -33,12 +34,27 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .manage(app_state)
+        .setup(|app| {
+            let app_handle = app.handle().clone();
+            let state = app.state::<AppState>();
+            let mut rx = state.monitor.subscribe();
+
+            tauri::async_runtime::spawn(async move {
+                while let Ok(event) = rx.recv().await {
+                    let _ = app_handle.emit("device-changed", &event);
+                }
+            });
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::mouse::scan_devices,
             commands::mouse::scan_all_devices,
             commands::mouse::connect_device,
             commands::mouse::disconnect_device,
             commands::mouse::get_active_device,
+            commands::mouse::get_battery_info,
+            commands::mouse::get_device_full_state,
             commands::mouse::trigger_check_pid,
             commands::mouse::run_rf_test,
             commands::mouse::set_mouse_polling_rate,

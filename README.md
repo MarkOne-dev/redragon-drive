@@ -13,14 +13,16 @@ High-performance, modern, memory-safe gaming mouse management driver and desktop
 
 ### 1. Hardware Configuration Suite (PixArt PAW3395 & Compx CX52850P)
 - **Polling Rate (Hz) Switching**: 125 Hz, 250 Hz, 500 Hz, 1000 Hz, 2000 Hz, 4000 Hz, 8000 Hz.
-- **Granular DPI Stages**: 50 to 26,000 DPI in precise 50 DPI steps with independent X/Y axes and per-stage RGB LED indicator assignment.
-- **Button Remapping (0-15)**: Custom actions for microswitches, DPI loop controls, Rapid Fire (*FireKey* burst sequences), multimedia shortcuts, and Sniper Precision DPI lock.
+- **Granular DPI Stages & Decoupled X/Y Axes**: 50 to 26,000 DPI in precise 50 DPI steps with independent X and Y axis tuning and per-stage RGB LED indicator assignment.
+- **Interactive Button Remapping (0-15)**: Visual chassis schematic matching factory hardware coordinates, Rapid Fire (*FireKey* burst sequences), multimedia shortcuts, and Sniper Precision DPI lock.
+- **Hardware Macro Sequencer**: Record key press sequences with custom millisecond delays and execution loop counts.
+- **On-Board Memory Profile Switcher**: Toggle between Profiles 1, 2, and 3 with instant configuration persistence.
 - **Advanced Sensor Tuning**:
   - **Lift-off Distance (LOD)**: 1.0 mm (esports/low profile) or 2.0 mm (cloth pads).
   - **Hardware Motion Sync**: Zero-jitter frame alignment with USB poll timing.
   - **Debounce Filter Delay**: Adjustable from 4 ms to 20 ms.
   - **Ripple Control & Angle Snapping**: Dynamic jitter suppression and linear trajectory correction.
-- **Real-Time Battery Reporting**: Live battery percentage and ADC voltage telemetry (mV).
+- **Real-Time Battery & Hotplug Telemetry**: Live battery percentage, ADC voltage telemetry (mV), and instant USB hotplug detection via asynchronous Tauri events.
 
 ### 2. 2.4GHz FastConnect Pairing Wizard
 - Seamless wireless pairing state machine replacing legacy factory pairing utilities (`CompxTester` / `max v1.5`).

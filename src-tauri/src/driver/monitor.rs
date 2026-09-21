@@ -6,7 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", content = "payload")]
 pub enum DeviceEvent {
     Connected(DeviceInfo),
     Disconnected(String), // Path of the disconnected device
@@ -26,6 +27,11 @@ impl DeviceMonitor {
             Self { running, sender },
             receiver,
         )
+    }
+
+    /// Subscribes to device hotplug events
+    pub fn subscribe(&self) -> broadcast::Receiver<DeviceEvent> {
+        self.sender.subscribe()
     }
 
     /// Starts the background scan loop (checking every 500ms)

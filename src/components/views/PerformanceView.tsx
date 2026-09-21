@@ -1,0 +1,308 @@
+import { useState } from 'react';
+import { 
+  Gauge, 
+  Crosshair, 
+  Check, 
+  Palette, 
+  SlidersHorizontal,
+  Info
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import type { PollingRateHz, DpiStageConfig } from '@/types/mouse';
+
+interface PerformanceViewProps {
+  currentPollingRate: PollingRateHz;
+  onSetPollingRate: (hz: PollingRateHz) => Promise<void>;
+  dpiStages: DpiStageConfig[];
+  activeStageIndex: number;
+  onSelectActiveStage: (index: number) => void;
+  onUpdateDpiStage: (stageIndex: number, dpi: number, rgb: [number, number, number]) => Promise<void>;
+}
+
+const POLLING_RATES: { hz: PollingRateHz; latency: string; label: string }[] = [
+  { hz: 125, latency: '8.0 ms', label: '125 Hz' },
+  { hz: 250, latency: '4.0 ms', label: '250 Hz' },
+  { hz: 500, latency: '2.0 ms', label: '500 Hz' },
+  { hz: 1000, latency: '1.0 ms', label: '1000 Hz' },
+  { hz: 2000, latency: '0.5 ms', label: '2000 Hz (4K/8K)' },
+  { hz: 4000, latency: '0.25 ms', label: '4000 Hz (4K/8K)' },
+  { hz: 8000, latency: '0.125 ms', label: '8000 Hz (8K)' },
+];
+
+const PRESET_COLORS: [number, number, number][] = [
+  [255, 42, 77],   // Redragon Crimson
+  [0, 240, 255],   // Cyan
+  [50, 255, 126],  // Neon Green
+  [255, 211, 42],  // Gold Yellow
+  [156, 39, 176],  // Purple
+  [255, 121, 63],  // Orange
+  [255, 255, 255], // Pure White
+];
+
+export const PerformanceView: React.FC<PerformanceViewProps> = ({
+  currentPollingRate,
+  onSetPollingRate,
+  dpiStages,
+  activeStageIndex,
+  onSelectActiveStage,
+  onUpdateDpiStage,
+}) => {
+  const [isApplyingRate, setIsApplyingRate] = useState(false);
+  const [isApplyingDpi, setIsApplyingDpi] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const activeStage = dpiStages[activeStageIndex] || dpiStages[0];
+  const [localDpi, setLocalDpi] = useState<number>(activeStage?.dpi_x || 1600);
+  const [localRgb, setLocalRgb] = useState<[number, number, number]>(activeStage?.rgb || [255, 42, 77]);
+
+  // Sync with active stage when switching
+  const handleStageSelect = (index: number) => {
+    onSelectActiveStage(index);
+    const stage = dpiStages[index];
+    if (stage) {
+      setLocalDpi(stage.dpi_x);
+      setLocalRgb(stage.rgb);
+    }
+  };
+
+  const handleApplyPollingRate = async (hz: PollingRateHz) => {
+    setIsApplyingRate(true);
+    try {
+      await onSetPollingRate(hz);
+      setStatusMessage(`Report rate successfully switched to ${hz} Hz`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (err: any) {
+      setStatusMessage(`Failed to set polling rate: ${err?.message || err}`);
+    } finally {
+      setIsApplyingRate(false);
+    }
+  };
+
+  const handleApplyDpi = async () => {
+    // Snap to multiple of 50
+    const roundedDpi = Math.round(localDpi / 50) * 50;
+    const clampedDpi = Math.max(50, Math.min(26000, roundedDpi));
+    setLocalDpi(clampedDpi);
+
+    setIsApplyingDpi(true);
+    try {
+      await onUpdateDpiStage(activeStageIndex, clampedDpi, localRgb);
+      setStatusMessage(`Stage ${activeStageIndex + 1} updated to ${clampedDpi} DPI`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (err: any) {
+      setStatusMessage(`Failed to update DPI: ${err?.message || err}`);
+    } finally {
+      setIsApplyingDpi(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto select-none">
+      {/* Status Alert Toast */}
+      {statusMessage && (
+        <div className="rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center justify-between animate-in fade-in">
+          <span>{statusMessage}</span>
+          <Button variant="ghost" size="xs" onClick={() => setStatusMessage(null)}>Dismiss</Button>
+        </div>
+      )}
+
+      {/* SECTION 1: Polling Rate (Hz) */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Gauge className="size-4 text-red-500" />
+              USB / Wireless Polling Rate (Report Frequency)
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Determines how many times per second the mouse sends coordinate & button packets to your system.
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs font-mono border-red-500/40 text-red-400 bg-red-500/10">
+            Current: {currentPollingRate} Hz
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mt-4">
+          {POLLING_RATES.map((item) => {
+            const isSelected = currentPollingRate === item.hz;
+            return (
+              <button
+                key={item.hz}
+                onClick={() => handleApplyPollingRate(item.hz)}
+                disabled={isApplyingRate}
+                className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all duration-150 relative ${
+                  isSelected
+                    ? 'border-red-500 bg-red-500/15 text-foreground shadow-[0_0_15px_rgba(239,68,68,0.25)]'
+                    : 'border-border/60 bg-background/50 hover:bg-muted/60 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {isSelected && (
+                  <span className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full" />
+                )}
+                <span className="font-bold font-mono text-sm tracking-tight">{item.label}</span>
+                <span className="text-[10px] text-muted-foreground mt-0.5">{item.latency}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 p-3 rounded-lg bg-background/40 border border-border/40 flex items-center gap-2 text-xs text-muted-foreground">
+          <Info className="size-3.5 text-blue-400 shrink-0" />
+          <span>
+            <strong>1000 Hz (1.0ms)</strong> is the optimal native competitive rate for the Redragon M916-PRO 1K with low CPU overhead.
+          </span>
+        </div>
+      </div>
+
+      {/* SECTION 2: DPI Stages & PixArt PAW3395 Tuning */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Crosshair className="size-4 text-red-500" />
+              PixArt PAW3395 DPI Stages & Color Mapping
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Supports 50 to 26,000 DPI in granular 50 DPI steps with independent LED color indication per stage.
+            </p>
+          </div>
+          <Button
+            onClick={handleApplyDpi}
+            disabled={isApplyingDpi}
+            className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5 shadow-sm shadow-red-600/30"
+          >
+            <Check className="size-3.5" />
+            {isApplyingDpi ? 'Applying...' : 'Apply Stage Settings'}
+          </Button>
+        </div>
+
+        {/* Stage Selector Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-border/40">
+          {dpiStages.map((stage, idx) => {
+            const isSelected = activeStageIndex === idx;
+            const rgbColor = `rgb(${stage.rgb[0]}, ${stage.rgb[1]}, ${stage.rgb[2]})`;
+
+            return (
+              <button
+                key={idx}
+                onClick={() => handleStageSelect(idx)}
+                className={`px-3.5 py-2 rounded-lg border text-xs font-medium flex items-center gap-2 transition-all ${
+                  isSelected
+                    ? 'border-red-500/80 bg-red-500/10 text-foreground font-semibold shadow-xs'
+                    : 'border-border/60 bg-background/50 hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                <span className="size-2.5 rounded-full border border-white/20" style={{ backgroundColor: rgbColor }} />
+                <span>Stage {idx + 1}</span>
+                <span className="font-mono text-[11px] opacity-75">({stage.dpi_x})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active Stage Details Editor */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          {/* DPI Slider & Value */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <SlidersHorizontal className="size-3.5 text-red-400" />
+                Stage {activeStageIndex + 1} Sensitivity
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={50}
+                  max={26000}
+                  step={50}
+                  value={localDpi}
+                  onChange={(e) => setLocalDpi(Number(e.target.value))}
+                  className="w-24 px-2 py-1 bg-background border border-border rounded text-center font-mono font-bold text-sm text-foreground focus:outline-none focus:border-red-500"
+                />
+                <span className="text-xs font-mono text-muted-foreground">DPI</span>
+              </div>
+            </div>
+
+            {/* Range Slider */}
+            <div className="space-y-2">
+              <input
+                type="range"
+                min={50}
+                max={26000}
+                step={50}
+                value={localDpi}
+                onChange={(e) => setLocalDpi(Number(e.target.value))}
+                className="w-full accent-red-600 cursor-pointer h-2 bg-muted rounded-lg appearance-none"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                <span>50 DPI</span>
+                <span>800</span>
+                <span>1,600</span>
+                <span>3,200</span>
+                <span>6,400</span>
+                <span>12,800</span>
+                <span>26,000 DPI</span>
+              </div>
+            </div>
+
+            {/* Quick DPI Presets */}
+            <div className="pt-2">
+              <span className="text-[11px] text-muted-foreground mb-1.5 block">Quick Presets:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[400, 800, 1200, 1600, 2400, 3200, 6400, 12000, 26000].map((preset) => (
+                  <Button
+                    key={preset}
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setLocalDpi(preset)}
+                    className={`font-mono text-[11px] ${localDpi === preset ? 'border-red-500 text-red-400 bg-red-500/10' : ''}`}
+                  >
+                    {preset}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* RGB Color Selection for DPI Indicator */}
+          <div className="rounded-xl border border-border/50 bg-background/50 p-4 space-y-3">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Palette className="size-3.5 text-red-400" />
+              Stage Indicator LED Color
+            </label>
+
+            <div className="flex items-center gap-3">
+              <div 
+                className="size-10 rounded-lg border border-white/20 shadow-md shrink-0 transition-colors"
+                style={{ backgroundColor: `rgb(${localRgb[0]}, ${localRgb[1]}, ${localRgb[2]})` }}
+              />
+              <div className="font-mono text-xs text-foreground">
+                RGB({localRgb[0]}, {localRgb[1]}, {localRgb[2]})
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <span className="text-[11px] text-muted-foreground mb-2 block">Preset Swatches:</span>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map((color, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLocalRgb(color)}
+                    className={`size-6 rounded-full border transition-transform hover:scale-110 ${
+                      localRgb[0] === color[0] && localRgb[1] === color[1] && localRgb[2] === color[2]
+                        ? 'ring-2 ring-white ring-offset-2 ring-offset-background scale-110'
+                        : 'border-white/20'
+                    }`}
+                    style={{ backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

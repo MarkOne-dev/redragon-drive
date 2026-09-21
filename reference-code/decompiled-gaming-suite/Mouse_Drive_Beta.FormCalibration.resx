@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+<resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>1.3</value></resheader><resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader><data name="$this.Icon" mimetype="application/x-microsoft.net.object.binary.base64"><value>AAEAAAD/////AQAAAAAAAAAMAgAAAFFTeXN0ZW0uRHJhd2luZywgVmVyc2lvbj00LjAuMC4wLCBD
+dWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWIwM2Y1ZjdmMTFkNTBhM2EFAQAAABNTeXN0
+ZW0uRHJhd2luZy5JY29uAgAAAAhJY29uRGF0YQhJY29uU2l6ZQcEAhNTeXN0ZW0uRHJhd2luZy5T
+aXplAgAAAAIAAAAJAwAAAAX8////E1N5c3RlbS5EcmF3aW5nLlNpemUCAAAABXdpZHRoBmhlaWdo
+dAAACAgCAAAAAAAAAAAAAAAPAwAAAL4QAAACAAABAAEAICAAAAEAIACoEAAAFgAAACgAAAAgAAAA
+QAAAAAEAIAAAAAAAABAAABILAAASCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAGFbDwBhWw8AYVsPAGFbDwBhWw8aYVsPYmFbDxJhWw8AYVsPAGFbDxthWw9iYVsPE2Fb
+DwBhWw8AYVsPAGFbDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAABhWw8AYVsPAGFbDwBhWw8AYVsPNGFbD7dhWw/3YVsPhWFbDwRhWw8K
+YVsPmGFbD/hhWw+rYVsPKmFbDwBhWw8AYVsPAGFbDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAABhWw8AYVsPAGFbDwBhWw8AYVsPB2FbD2JhWw/eYVsP/2Fb
+D/9hWw/0YVsPYmFbD3RhWw/6YVsP/2FbD/9hWw/VYVsPVGFbDwNhWw8AYVsPAGFbDwBZUw4AAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYVsPAGFbDwBhWw8AYVsPAGFbDxthWw+U
+YVsP9mFbD/9hWw//YVsP/2FbD/9hWw/pYVsP6WFbD/9hWw//YVsP/2FbD/9hWw/xYVsPh2FbDxVh
+Ww8AYVsPAGFbDwBhWw8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABhWw8AYVsPAGFb
+DwNhWw9AYVsPw2FbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw/iYVsP6WFbD/9hWw//YVsP
+/2FbD/9hWw/+YVsPuGFbDzZhWw8BYVsPAGFbDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+YVsPAGFbDwBhWw8AYVsPH2FbD8thWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD/Fh
+Ww+sYVsP8mFbD/9hWw//YVsP/2FbD/9hWw//YVsPu2FbDxVhWw8AYVsPAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAGFbDwBhWw8AYVsPAGFbDwBhWw8AYVsPWWFbD+xhWw//YVsP/2FbD/9hWw//YVsP
+/2FbD/9hWw//YVsP/2FbD7VhWw+nYVsP/2FbD/9hWw//YVsP/2FbD+NhWw9IYVsPAGFbDwBhWw8A
+YVsPAGFbDwAAAAAAAAAAAAAAAABhWw8AYVsPAGFbDwBhWw8AYVsPL2FbDzphWw8AYVsPdGFbD/ph
+Ww//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP7GFbD2thWw/dYVsP/2FbD/9hWw/1YVsPYGFb
+DwBhWw9CYVsPKGFbDwBhWw8AYVsPAGFbDwAAAAAAYVsPAGFbDwBhWw8AYVsPBWFbD1phWw/bYVsP
+22FbDzJhWw8KYVsPr2FbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPiWFbD4lhWw//
+YVsP/2FbD5thWw8DYVsPQ2FbD+ZhWw/RYVsPTWFbDwJhWw8AYVsPAGFbDwBhWw8AYVsPAGFbDxdh
+Ww+NYVsP82FbD/9hWw//YVsPsWFbDwphWw8+YVsP7WFbD/9hWw//YVsP/2FbD/9hWw//YVsP/2Fb
+D/9hWw/HYVsPSGFbD+xhWw/kYVsPLWFbDxRhWw/DYVsP/2FbD/9hWw/uYVsPf2FbDxFhWw8AYVsP
+AGFbDwBhWw84YVsPvWFbD/9hWw//YVsP/2FbD/9hWw/5YVsPWmFbDwNhWw+pYVsP/2FbD/9hWw//
+YVsP/2FbD/9hWw//YVsP/2FbD+1hWw9AYVsPt2FbD5dhWw8AYVsPb2FbD/5hWw//YVsP/2FbD/9h
+Ww/9YVsPsGFbDy5hWw8AYVsPWmFbD+FhWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw+1YVsPBmFb
+D1hhWw/6YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP/mFbD2BhWw9qYVsPRWFbDxBhWw/IYVsP
+/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP12FbD0lhWw86YVsP0WFbD/9hWw//YVsP/2FbD/9hWw//
+YVsP/2FbD+phWw8uYVsPImFbD+FhWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPh2FbDx1h
+Ww8NYVsPQmFbD/RhWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw/CYVsPLGFbDwBhWw9QYVsP82Fb
+D/9hWw//YVsP/2FbD/9hWw//YVsP/WFbD15hWw8IYVsPv2FbD/9hWw//YVsP/2FbD/9hWw//YVsP
+/2FbD/9hWw+lYVsPAmFbDwBhWw92YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP62FbDz5hWw8A
+YVsPAGFbDw5hWw/CYVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPgWFbDwBhWw+kYVsP/2FbD/9h
+Ww//YVsP/2FbD/9hWw//YVsP/2FbD7ZhWw8IYVsPAGFbD5hhWw//YVsP/2FbD/9hWw//YVsP/2Fb
+D/9hWw+uYVsPBmFbDwBhWw8AYVsPAGFbD5xhWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw+OYVsP
+AGFbD5VhWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPu2FbDwphWw8CYVsPpmFbD/9hWw//
+YVsP/2FbD/9hWw//YVsP/2FbD4ZhWw8AYVsPAGFbDwBhWw8BYVsPn2FbD/9hWw//YVsP/2FbD/9h
+Ww//YVsP/2FbD45hWw8AYVsPlmFbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw+7YVsPCmFb
+DwJhWw+lYVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPiGFbDwBhWw8AYVsPAGFbDxFhWw/IYVsP
+/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPf2FbDwBhWw+mYVsP/2FbD/9hWw//YVsP/2FbD/9hWw//
+YVsP/2FbD7VhWw8HYVsPAGFbD5ZhWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw+1YVsPCWFbDwBh
+Ww8AYVsPXWFbD/dhWw//YVsP/2FbD/9hWw//YVsP/2FbD/xhWw9ZYVsPCWFbD8NhWw//YVsP/2Fb
+D/9hWw//YVsP/2FbD/9hWw//YVsPo2FbDwJhWw8AYVsPcWFbD/9hWw//YVsP/2FbD/9hWw//YVsP
+/2FbD/BhWw9KYVsPAGFbD0hhWw/cYVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP5mFbDylhWw8m
+YVsP5WFbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw+DYVsPJGFbDxFhWw88YVsP8WFbD/9h
+Ww//YVsP/2FbD/9hWw//YVsP/2FbD9BhWw83YVsPUGFbD9RhWw//YVsP/2FbD/9hWw//YVsP/2Fb
+D/9hWw+sYVsPA2FbD2BhWw/8YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP/WFbD1thWw90YVsP
+TWFbDwxhWw/AYVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPyWFbDz9hWw8AYVsPKWFbD6thWw/8
+YVsP/2FbD/9hWw//YVsP9WFbD09hWw8GYVsPsmFbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD/9h
+Ww/qYVsPP2FbD79hWw+gYVsPAWFbD2RhWw/7YVsP/2FbD/9hWw//YVsP+GFbD5xhWw8gYVsPAGFb
+DwBhWw8AYVsPDmFbD3hhWw/qYVsP/2FbD/9hWw+kYVsPBmFbD0lhWw/yYVsP/2FbD/9hWw//YVsP
+/2FbD/9hWw//YVsP/2FbD8BhWw9MYVsP8GFbD+lhWw82YVsPDmFbD7dhWw//YVsP/2FbD+NhWw9p
+YVsPCWFbDwBhWw8AYVsPAGFbDwBhWw8AYVsPAWFbD0dhWw/NYVsPzmFbDyZhWw8RYVsPu2FbD/9h
+Ww//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPg2FbD5RhWw//YVsP/2FbD6hhWw8IYVsPNmFb
+D9lhWw/BYVsPO2FbDwBhWw8AYVsPAGFbDwAAAAAAYVsPAGFbDwBhWw8AYVsPAGFbDyFhWw8qYVsP
+AmFbD4RhWw/9YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD+dhWw9tYVsP5WFbD/9hWw//
+YVsP+WFbD3BhWw8AYVsPL2FbDxthWw8AYVsPAGFbDwBhWw8AAAAAAAAAAAAAAAAAYVsPAGFbDwBh
+Ww8AYVsPAGFbDwJhWw9qYVsP82FbD/9hWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//YVsPsGFb
+D7FhWw//YVsP/2FbD/9hWw//YVsP7GFbD1lhWw8AYVsPAGFbDwBhWw8AYVsPAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAGFbDwBhWw8AYVsPHmFbD8hhWw//YVsP/2FbD/9hWw//YVsP/2FbD/9hWw//
+YVsP/2FbD+1hWw+wYVsP9mFbD/9hWw//YVsP/2FbD/9hWw//YVsPt2FbDxRhWw8AYVsPAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYVsPAGFbDwBhWw8BYVsPMGFbD7JhWw/9YVsP/2Fb
+D/9hWw//YVsP/2FbD/9hWw//YVsP5GFbD+5hWw//YVsP/2FbD/9hWw//YVsP+mFbD6RhWw8mYVsP
+AGFbDwBhWw8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABhWw8AYVsPAGFbDwBhWw8A
+YVsPEWFbD4BhWw/uYVsP/2FbD/9hWw//YVsP/2FbD+BhWw/jYVsP/2FbD/9hWw//YVsP/2FbD+dh
+Ww9yYVsPDGFbDwBhWw8AYVsPAGFbDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAgHgUAYVsPAGFbDwBhWw8AYVsPAmFbD09hWw/RYVsP/2FbD/9hWw/uYVsPUmFbD2NhWw/1YVsP
+/2FbD/9hWw/GYVsPQmFbDwBhWw8AYVsPAGFbDwASEQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYVsPAGFbDwBhWw8AYVsPAGFbDyZhWw+lYVsP72FbD3Rh
+Ww8BYVsPBWFbD4hhWw/vYVsPl2FbDx1hWw8AYVsPAGFbDwBhWw8AAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYVsPAGFbDwBhWw8AYVsP
+AGFbDxFhWw9MYVsPDGFbDwBhWw8AYVsPEmFbD0thWw8LYVsPAGFbDwBhWw8AYVsPAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAA//4AAH/4AAAf8AAAD/AAAA/gAAAPwAAAA4AAAAEA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAgAAAAcAAAAPwAAAP8AAAD/AAAA/4AAAf/gAAf/8AAP8L</value></data></root>

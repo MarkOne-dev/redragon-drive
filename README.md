@@ -36,12 +36,30 @@ High-performance, modern, memory-safe gaming mouse management driver and desktop
 
 ## Installation
 
-Download the latest release for your Linux distribution from [GitHub Releases](https://github.com/MarkOne-dev/redragon-drive/releases/latest).
+### Quick Install (Single Command)
 
-### 1. Arch Linux / CachyOS / Manjaro / EndeavourOS
+Install the latest release system-wide with application launcher entry, desktop icon, and udev rules configured automatically:
 
-#### Method A: AUR Helper (paru / yay)
-Install directly using your preferred AUR package manager:
+```bash
+curl -fsSL https://raw.githubusercontent.com/MarkOne-dev/redragon-drive/main/install.sh | bash
+```
+
+---
+
+### Manual Installation by Distribution
+
+Download packages from [GitHub Releases](https://github.com/MarkOne-dev/redragon-drive/releases/latest).
+
+#### 1. Arch Linux / CachyOS / Manjaro / EndeavourOS
+
+**Option A: Native PKGBUILD (makepkg)**
+```bash
+git clone https://github.com/MarkOne-dev/redragon-drive.git
+cd redragon-drive/packaging/arch
+makepkg -si
+```
+
+**Option B: AUR Helper (paru / yay)**
 ```bash
 # Using paru
 paru -S redragon-m916-suite-bin
@@ -50,20 +68,18 @@ paru -S redragon-m916-suite-bin
 yay -S redragon-m916-suite-bin
 ```
 
-#### Method B: Standalone AppImage
-Download the `.AppImage` from GitHub Releases, make it executable, and run:
+**Option C: Standalone AppImage**
 ```bash
 chmod +x Redragon*.AppImage
 ./Redragon*.AppImage
 ```
-If your system lacks FUSE2, run with:
+*If your system lacks FUSE2, run with:*
 ```bash
 ./Redragon*.AppImage --appimage-extract-and-run
 ```
 
-#### Method C: Convert from deb via debtap
+**Option D: Convert from deb via debtap**
 ```bash
-# Update debtap database if needed
 sudo debtap -u
 debtap Redragon*.deb
 sudo pacman -U redragon-m916-suite-*.pkg.tar.zst
@@ -71,18 +87,18 @@ sudo pacman -U redragon-m916-suite-*.pkg.tar.zst
 
 ---
 
-### 2. Ubuntu / Debian / Linux Mint / Pop!_OS
+#### 2. Ubuntu / Debian / Linux Mint / Pop!_OS
 
-Download the `.deb` package from GitHub Releases and install with `apt`:
+Download the `.deb` package and install with `apt`:
 ```bash
 sudo apt install ./Redragon*.deb
 ```
 
 ---
 
-### 3. Fedora / RHEL / openSUSE
+#### 3. Fedora / RHEL / openSUSE
 
-Download the `.rpm` package from GitHub Releases and install with your package manager:
+Download the `.rpm` package and install with your package manager:
 ```bash
 # Fedora / RHEL
 sudo dnf install ./Redragon*.rpm
@@ -93,9 +109,9 @@ sudo zypper install ./Redragon*.rpm
 
 ---
 
-### 4. Universal Linux (AppImage)
+#### 4. Universal Linux (AppImage)
 
-Compatible with any modern Linux distribution:
+Compatible with any modern Linux distribution with glibc:
 ```bash
 chmod +x Redragon*.AppImage
 ./Redragon*.AppImage

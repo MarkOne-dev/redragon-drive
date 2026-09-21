@@ -86,9 +86,14 @@ export const mouseApi = {
     return trackedInvoke<void>('set_mouse_polling_rate', { hz });
   },
 
-  async setDpi(stageIdx: number, dpiVal: number, r: number, g: number, b: number): Promise<void> {
+  async setDpi(stageIdx: number, dpiX: number, dpiY: number, r: number, g: number, b: number): Promise<void> {
     if (!isTauri()) return;
-    return trackedInvoke<void>('set_mouse_dpi', { stageIdx, dpiVal, r, g, b });
+    return trackedInvoke<void>('set_mouse_dpi', { stageIdx, dpiX, dpiY, r, g, b });
+  },
+
+  async setActiveDpiStage(stageIdx: number): Promise<void> {
+    if (!isTauri()) return;
+    return trackedInvoke<void>('set_active_dpi_stage', { stageIdx });
   },
 
   async setButton(buttonIdx: number, action: ButtonAction): Promise<void> {
@@ -136,6 +141,16 @@ export const mouseApi = {
   async setSensor(config: SensorConfig): Promise<void> {
     if (!isTauri()) return;
     return trackedInvoke<void>('set_mouse_sensor', { config });
+  },
+
+  async setActiveProfile(profileIdx: number): Promise<void> {
+    if (!isTauri()) return;
+    return trackedInvoke<void>('set_active_profile', { profileIdx });
+  },
+
+  async getActiveProfile(): Promise<number> {
+    if (!isTauri()) return 0;
+    return trackedInvoke<number>('get_active_profile');
   },
 
   async startPairing(cid: number, pid: number): Promise<void> {

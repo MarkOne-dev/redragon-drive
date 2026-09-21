@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Sidebar, type NavTab } from '@/components/layout/Sidebar';
+import { SplashScreen } from '@/components/layout/SplashScreen';
+import { DeviceLockScreen } from '@/components/layout/DeviceLockScreen';
 import { DashboardView } from '@/components/views/DashboardView';
 import { PerformanceView } from '@/components/views/PerformanceView';
 import { ButtonsView } from '@/components/views/ButtonsView';
@@ -14,20 +16,12 @@ import type {
   BatteryInfo, 
   MouseStats, 
   PollingRateHz, 
-  DpiStageConfig, 
   ButtonAction, 
   SensorConfig, 
   PairingState, 
-  AppConfig 
+  AppConfig,
+  MouseProfile 
 } from '@/types/mouse';
-
-const DEFAULT_DPI_STAGES: DpiStageConfig[] = [
-  { stage: 0, dpi_x: 400, dpi_y: 400, rgb: [255, 42, 77], enabled: true },
-  { stage: 1, dpi_x: 800, dpi_y: 800, rgb: [0, 240, 255], enabled: true },
-  { stage: 2, dpi_x: 1600, dpi_y: 1600, rgb: [50, 255, 126], enabled: true },
-  { stage: 3, dpi_x: 3200, dpi_y: 3200, rgb: [255, 211, 42], enabled: true },
-  { stage: 4, dpi_x: 6400, dpi_y: 6400, rgb: [156, 39, 176], enabled: true },
-];
 
 const DEFAULT_SENSOR_CONFIG: SensorConfig = {
   lod_height_mm: 1,
@@ -37,10 +31,53 @@ const DEFAULT_SENSOR_CONFIG: SensorConfig = {
   angle_snapping: false,
 };
 
+const createDefaultProfile = (id: number): MouseProfile => ({
+  id,
+  name: `Profile ${id}`,
+  dpi_stages: [
+    { stage: 0, dpi_x: 400, dpi_y: 400, rgb: [255, 42, 77], enabled: true },
+    { stage: 1, dpi_x: 800, dpi_y: 800, rgb: [0, 240, 255], enabled: true },
+    { stage: 2, dpi_x: 1600, dpi_y: 1600, rgb: [50, 255, 126], enabled: true },
+    { stage: 3, dpi_x: 3200, dpi_y: 3200, rgb: [255, 211, 42], enabled: true },
+    { stage: 4, dpi_x: 6400, dpi_y: 6400, rgb: [156, 39, 176], enabled: true },
+  ],
+  active_stage_index: 2,
+  polling_rate: 1000,
+  button_mappings: {},
+  sensor_config: DEFAULT_SENSOR_CONFIG,
+});
+
+const loadInitialProfiles = (): Record<number, MouseProfile> => {
+  const result: Record<number, MouseProfile> = {
+    1: createDefaultProfile(1),
+    2: createDefaultProfile(2),
+    3: createDefaultProfile(3),
+  };
+
+  for (let p = 1; p <= 3; p++) {
+    const raw = localStorage.getItem(`rd_profile_${p}_data`);
+    if (raw) {
+      try {
+        result[p] = { ...result[p], ...JSON.parse(raw) };
+      } catch {}
+    } else {
+      const legacyDpi = localStorage.getItem(`rd_profile_${p}_dpi`);
+      if (legacyDpi) {
+        try {
+          result[p].dpi_stages = JSON.parse(legacyDpi);
+        } catch {}
+      }
+    }
+  }
+  return result;
+};
+
 export function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [isSplashVisible, setIsSplashVisible] = useState<boolean>(true);
+  const [unlockingName, setUnlockingName] = useState<string | null>(null);
   const [battery, setBattery] = useState<BatteryInfo>({ percentage: 95, voltage_mv: 4120, is_charging: false });
   const [stats, setStats] = useState<MouseStats>({
     left_clicks: 0,
@@ -54,22 +91,12 @@ export function App() {
     max_polling_rate: 1000,
   });
 
+  const [profiles, setProfiles] = useState<Record<number, MouseProfile>>(loadInitialProfiles);
   const [activeProfile, setActiveProfile] = useState<number>(() => {
     const saved = localStorage.getItem('rd_active_profile');
-    return saved ? Number(saved) : 1;
+    return saved ? Math.min(3, Math.max(1, Number(saved))) : 1;
   });
 
-  const [pollingRate, setPollingRate] = useState<PollingRateHz>(1000);
-  const [dpiStages, setDpiStages] = useState<DpiStageConfig[]>(() => {
-    const saved = localStorage.getItem('rd_profile_1_dpi');
-    if (saved) {
-      try { return JSON.parse(saved); } catch {}
-    }
-    return DEFAULT_DPI_STAGES;
-  });
-  const [activeStageIndex, setActiveStageIndex] = useState<number>(2); // Default to 1600 DPI
-  const [sensorConfig, setSensorConfig] = useState<SensorConfig>(DEFAULT_SENSOR_CONFIG);
-  const [buttonMappings, setButtonMappings] = useState<Record<number, ButtonAction>>({});
   const [pairingStatus, setPairingStatus] = useState<PairingState>({ state: 'Idle' });
   const [config, setConfig] = useState<AppConfig>({
     auto_pair_on_insert: true,
@@ -79,15 +106,59 @@ export function App() {
     language: 'en',
   });
 
-  const handleSelectProfile = (p: number) => {
+  const currentProfile = profiles[activeProfile] || profiles[1];
+  const dpiStages = currentProfile.dpi_stages;
+  const activeStageIndex = currentProfile.active_stage_index;
+  const pollingRate = currentProfile.polling_rate;
+  const buttonMappings = currentProfile.button_mappings;
+  const sensorConfig = currentProfile.sensor_config;
+
+  const handleSelectProfile = async (p: number) => {
     setActiveProfile(p);
     localStorage.setItem('rd_active_profile', String(p));
-    const savedDpi = localStorage.getItem(`rd_profile_${p}_dpi`);
-    if (savedDpi) {
-      try {
-        setDpiStages(JSON.parse(savedDpi));
-      } catch {}
+
+    // 1. Tell mouse hardware to switch on-board profile (0-indexed: 0=P1, 1=P2, 2=P3)
+    try {
+      await mouseApi.setActiveProfile(p - 1);
+    } catch (err) {
+      console.warn('Failed to switch hardware profile:', err);
     }
+
+    // 2. Synchronize active profile parameters to the hardware
+    const target = profiles[p] || profiles[1];
+    try {
+      await mouseApi.setPollingRate(target.polling_rate);
+      for (let i = 0; i < target.dpi_stages.length; i++) {
+        const s = target.dpi_stages[i];
+        await mouseApi.setDpi(i, s.dpi_x, s.dpi_y, s.rgb[0], s.rgb[1], s.rgb[2]);
+      }
+      await mouseApi.setActiveDpiStage(target.active_stage_index);
+      await mouseApi.setSensor(target.sensor_config);
+      for (const [btnIdx, action] of Object.entries(target.button_mappings)) {
+        await mouseApi.setButton(Number(btnIdx), action);
+      }
+    } catch (syncErr) {
+      console.warn('Failed to synchronize profile settings to mouse hardware:', syncErr);
+    }
+  };
+
+  const handleSelectActiveStage = async (idx: number) => {
+    try {
+      await mouseApi.setActiveDpiStage(idx);
+    } catch (err) {
+      console.error('Failed to set active DPI stage on hardware:', err);
+    }
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          active_stage_index: idx,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   // Scan for connected Compx / Redragon mice and hydrate full state
@@ -96,13 +167,30 @@ export function App() {
     try {
       const devices = await mouseApi.scanDevices();
       if (devices && devices.length > 0) {
-        const primary = devices[0];
-        setDevice(primary);
-        await mouseApi.connectDevice(primary.path);
-        const fullState = await mouseApi.getDeviceFullState();
-        if (fullState.battery) setBattery(fullState.battery);
-        if (fullState.polling_rate) setPollingRate(fullState.polling_rate as PollingRateHz);
-        if (fullState.sensor) setSensorConfig(fullState.sensor);
+        const primary = devices.find((d) => d.interface_number === 1) || devices[0];
+        setDevice((prev) => {
+          if (!prev) {
+            setUnlockingName(primary.product || 'Redragon M916-PRO');
+            setTimeout(() => {
+              setUnlockingName(null);
+            }, 750);
+          }
+          return primary;
+        });
+        try {
+          await mouseApi.connectDevice(primary.path);
+          const fullState = await mouseApi.getDeviceFullState();
+          if (fullState.battery) setBattery(fullState.battery);
+          if (fullState.active_profile !== undefined && fullState.active_profile !== null) {
+            const hwProfile = fullState.active_profile + 1;
+            if (hwProfile >= 1 && hwProfile <= 3) {
+              setActiveProfile(hwProfile);
+              localStorage.setItem('rd_active_profile', String(hwProfile));
+            }
+          }
+        } catch (connErr) {
+          console.warn('Device detected but could not establish HID control session:', connErr);
+        }
       } else {
         setDevice(null);
       }
@@ -120,26 +208,75 @@ export function App() {
 
   const handleSetPollingRate = async (hz: PollingRateHz) => {
     await mouseApi.setPollingRate(hz);
-    setPollingRate(hz);
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          polling_rate: hz,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   const handleUpdateDpiStage = async (stageIdx: number, dpiX: number, dpiY: number, rgb: [number, number, number]) => {
-    await mouseApi.setDpi(stageIdx, dpiX, rgb[0], rgb[1], rgb[2]);
-    setDpiStages((prev) => {
-      const updated = prev.map((s, idx) => (idx === stageIdx ? { ...s, dpi_x: dpiX, dpi_y: dpiY, rgb } : s));
-      localStorage.setItem(`rd_profile_${activeProfile}_dpi`, JSON.stringify(updated));
+    try {
+      await mouseApi.setDpi(stageIdx, dpiX, dpiY, rgb[0], rgb[1], rgb[2]);
+      if (stageIdx === profiles[activeProfile]?.active_stage_index) {
+        await mouseApi.setActiveDpiStage(stageIdx);
+      }
+    } catch (err) {
+      console.error('Failed to set DPI stage on hardware:', err);
+    }
+    setProfiles((prev) => {
+      const updatedDpi = prev[activeProfile].dpi_stages.map((s, idx) =>
+        idx === stageIdx ? { ...s, dpi_x: dpiX, dpi_y: dpiY, rgb } : s
+      );
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          dpi_stages: updatedDpi,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
       return updated;
     });
   };
 
   const handleSaveButton = async (buttonIdx: number, action: ButtonAction) => {
     await mouseApi.setButton(buttonIdx, action);
-    setButtonMappings((prev) => ({ ...prev, [buttonIdx]: action }));
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          button_mappings: {
+            ...prev[activeProfile].button_mappings,
+            [buttonIdx]: action,
+          },
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   const handleSaveSensor = async (newConfig: SensorConfig) => {
     await mouseApi.setSensor(newConfig);
-    setSensorConfig(newConfig);
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          sensor_config: newConfig,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   const handleStartPairing = async () => {
@@ -186,6 +323,10 @@ export function App() {
     scanDevices();
     mouseApi.getConfig().then(setConfig).catch(console.error);
 
+    const splashTimer = setTimeout(() => {
+      setIsSplashVisible(false);
+    }, 1400);
+
     // Subscribe to hotplug USB events
     let unlistenFn: (() => void) | null = null;
     mouseApi.onDeviceChanged((event) => {
@@ -193,6 +334,7 @@ export function App() {
         scanDevices();
       } else if (event.type === 'Disconnected') {
         setDevice(null);
+        setUnlockingName(null);
       }
     }).then((unlisten) => {
       unlistenFn = unlisten;
@@ -206,6 +348,7 @@ export function App() {
     }, 3000);
 
     return () => {
+      clearTimeout(splashTimer);
       clearInterval(timer);
       if (unlistenFn) unlistenFn();
     };
@@ -214,91 +357,107 @@ export function App() {
   const activeStage = dpiStages[activeStageIndex] || dpiStages[0];
   const dpiColor = `rgb(${activeStage.rgb[0]}, ${activeStage.rgb[1]}, ${activeStage.rgb[2]})`;
 
+  const isLocked = !device || unlockingName !== null;
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans antialiased">
-      {/* Top Application Header */}
-      <Header
-        device={device}
-        battery={battery}
-        isScanning={isScanning}
-        onScan={scanDevices}
-        onDisconnect={handleDisconnect}
-        activeProfile={activeProfile}
-        onSelectProfile={handleSelectProfile}
-      />
+      {/* Initial Splash Loading Screen */}
+      <SplashScreen isVisible={isSplashVisible} />
 
-      {/* Main App Workspace */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Navigation Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-          pollingRateHz={pollingRate}
+      {/* Device Lock Screen when disconnected */}
+      {!isSplashVisible && isLocked ? (
+        <DeviceLockScreen
+          isScanning={isScanning}
+          onScan={scanDevices}
+          detectedName={unlockingName}
         />
+      ) : (
+        <>
+          {/* Top Application Header */}
+          <Header
+            device={device}
+            battery={battery}
+            isScanning={isScanning}
+            onScan={scanDevices}
+            onDisconnect={handleDisconnect}
+            activeProfile={activeProfile}
+            onSelectProfile={handleSelectProfile}
+          />
 
-        {/* Dynamic Content View */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-background to-card/30">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              device={device}
-              battery={battery}
-              stats={stats}
-              currentDpi={activeStage.dpi_x}
-              dpiColor={dpiColor}
+          {/* Main App Workspace */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Navigation Sidebar */}
+            <Sidebar
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
               pollingRateHz={pollingRate}
-              onNavigate={setActiveTab}
-              onRefreshBattery={handleRefreshBattery}
             />
-          )}
 
-          {activeTab === 'performance' && (
-            <PerformanceView
-              currentPollingRate={pollingRate}
-              onSetPollingRate={handleSetPollingRate}
-              dpiStages={dpiStages}
-              activeStageIndex={activeStageIndex}
-              onSelectActiveStage={setActiveStageIndex}
-              onUpdateDpiStage={handleUpdateDpiStage}
-            />
-          )}
+            {/* Dynamic Content View */}
+            <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-background to-card/30">
+              {activeTab === 'dashboard' && (
+                <DashboardView
+                  device={device}
+                  battery={battery}
+                  stats={stats}
+                  currentDpi={activeStage.dpi_x}
+                  dpiColor={dpiColor}
+                  pollingRateHz={pollingRate}
+                  onNavigate={setActiveTab}
+                  onRefreshBattery={handleRefreshBattery}
+                />
+              )}
 
-          {activeTab === 'buttons' && (
-            <ButtonsView
-              buttonMappings={buttonMappings}
-              onSaveButtonMapping={handleSaveButton}
-            />
-          )}
+              {activeTab === 'performance' && (
+                <PerformanceView
+                  currentPollingRate={pollingRate}
+                  onSetPollingRate={handleSetPollingRate}
+                  dpiStages={dpiStages}
+                  activeStageIndex={activeStageIndex}
+                  onSelectActiveStage={handleSelectActiveStage}
+                  onUpdateDpiStage={handleUpdateDpiStage}
+                />
+              )}
 
-          {activeTab === 'sensor' && (
-            <SensorView
-              sensorConfig={sensorConfig}
-              onSaveSensorConfig={handleSaveSensor}
-            />
-          )}
+              {activeTab === 'buttons' && (
+                <ButtonsView
+                  buttonMappings={buttonMappings}
+                  onSaveButtonMapping={handleSaveButton}
+                />
+              )}
 
-          {activeTab === 'pairing' && (
-            <PairingView
-              pairingStatus={pairingStatus}
-              onStartPairing={handleStartPairing}
-              onCancelPairing={handleCancelPairing}
-            />
-          )}
+              {activeTab === 'sensor' && (
+                <SensorView
+                  sensorConfig={sensorConfig}
+                  onSaveSensorConfig={handleSaveSensor}
+                />
+              )}
 
-          {activeTab === 'diagnostics' && (
-            <DiagnosticsView
-              stats={stats}
-              onRefreshStats={handleRefreshStats}
-            />
-          )}
+              {activeTab === 'pairing' && (
+                <PairingView
+                  pairingStatus={pairingStatus}
+                  onStartPairing={handleStartPairing}
+                  onCancelPairing={handleCancelPairing}
+                />
+              )}
 
-          {activeTab === 'settings' && (
-            <SettingsView
-              config={config}
-              onSaveConfig={handleSaveConfig}
-            />
-          )}
-        </main>
-      </div>
+              {activeTab === 'diagnostics' && (
+                <DiagnosticsView
+                  stats={stats}
+                  onRefreshStats={handleRefreshStats}
+                />
+              )}
+
+              {activeTab === 'settings' && (
+                <SettingsView
+                  config={config}
+                  onSaveConfig={handleSaveConfig}
+                />
+              )}
+            </main>
+          </div>
+        </>
+      )}
     </div>
   );
 }

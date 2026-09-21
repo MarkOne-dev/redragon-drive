@@ -10,6 +10,8 @@ pub struct DeviceInfo {
     pub product: Option<String>,
     pub serial_number: Option<String>,
     pub interface_number: i32,
+    pub is_wired: bool,
+    pub is_dongle: bool,
 }
 
 /// State of the wireless pairing process (FastConnect / Pairing)

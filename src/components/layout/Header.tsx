@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { DeviceInfo, BatteryInfo } from '@/types/mouse';
 import { useTheme } from '@/components/theme-provider';
+import { useTranslation } from 'react-i18next';
 
 interface HeaderProps {
   device: DeviceInfo | null;
@@ -34,24 +35,27 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectProfile,
 }) => {
   const { theme, setTheme } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <header className="h-16 border-b border-border/50 bg-card/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
       {/* Brand & Model */}
-      <div className="flex items-center gap-3">
-        <div className="size-9 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-          <span className="text-red-500 font-black text-lg tracking-tighter">RD</span>
-        </div>
+      <div className="flex items-center gap-3.5">
+        <img 
+          src="/assets/logo.png" 
+          alt="Redragon Logo" 
+          className="h-11 w-auto object-contain dark:brightness-100 brightness-0 dark:drop-shadow-[0_0_10px_rgba(239,68,68,0.4)] transition-transform hover:scale-105 select-none shrink-0" 
+        />
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-bold tracking-wide text-foreground text-sm uppercase">
-              Redragon M916-PRO
+              {t('header.appName')}
             </h1>
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-500/40 text-red-400 bg-red-500/10">
               1K PRO
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">PixArt PAW3395 · CX52850P MCU</p>
+          <p className="text-xs text-muted-foreground">{t('header.subtitle')}</p>
         </div>
       </div>
 
@@ -65,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
             <span className="font-medium text-emerald-400 flex items-center gap-1.5">
               {device.is_wired ? <Usb className="size-3.5" /> : <Wifi className="size-3.5" />}
-              {device.is_wired ? 'USB-C Wired Mode' : '2.4GHz Wireless Dongle'}
+              {device.is_wired ? t('header.wiredMode') : t('header.wirelessMode')}
             </span>
             <span className="text-muted-foreground">|</span>
             <span className="text-xs text-muted-foreground font-mono">
@@ -75,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
         ) : (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/40 border border-border text-xs text-muted-foreground">
             <span className="size-2 rounded-full bg-muted-foreground/40" />
-            <span>No Device Connected</span>
+            <span>{t('header.disconnected')}</span>
           </div>
         )}
 
@@ -91,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="font-semibold text-foreground">{battery.percentage}%</span>
               {battery.voltage_mv > 0 && (
                 <span className="text-[10px] text-muted-foreground font-mono">
-                  ({(battery.voltage_mv / 1000).toFixed(2)}V)
+                  ({(battery.voltage_mv / 1000).toFixed(2)}{t('common.volts')})
                 </span>
               )}
             </div>
@@ -110,7 +114,9 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-3">
         {/* Profile Pill Switcher */}
         <div className="flex items-center gap-1 bg-background/60 border border-border/80 rounded-lg p-0.5 text-xs">
-          <span className="text-[10px] text-muted-foreground uppercase font-semibold px-1.5 font-mono">Profile</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-semibold px-1.5 font-mono">
+            {t('common.profile')}
+          </span>
           {[1, 2, 3].map((p) => (
             <button
               key={p}
@@ -126,6 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
         </div>
 
+
         <Button
           variant="outline"
           size="sm"
@@ -134,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="gap-1.5 text-xs border-border/60 hover:border-red-500/40"
         >
           <RefreshCw className={`size-3.5 ${isScanning ? 'animate-spin text-red-500' : ''}`} />
-          {isScanning ? 'Scanning...' : 'Scan USB'}
+          {isScanning ? t('header.searching') : t('header.scanDevices')}
         </Button>
 
         {device && (
@@ -142,7 +149,7 @@ export const Header: React.FC<HeaderProps> = ({
             variant="ghost"
             size="icon-sm"
             onClick={onDisconnect}
-            title="Disconnect device"
+            title={t('common.disconnected')}
             className="text-muted-foreground hover:text-destructive"
           >
             <PowerOff className="size-3.5" />

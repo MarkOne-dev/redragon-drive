@@ -41,11 +41,22 @@ impl<'a> HidTransport<'a> {
         Ok(buffer)
     }
 
-    /// Writes an Output Report (e.g. Report ID 8)
+    /// Writes a Report (e.g. Report ID 8) to the Compx MCU.
+    /// Compx receiver firmwares require control/configuration commands to be submitted
+    /// as HID Feature Reports (HidD_SetFeature / HIDIOCSFEATURE).
+    /// If send_feature_report fails, falls back to standard interrupt out write.
     pub fn write_output_report(&self, buffer: &[u8]) -> Result<usize> {
-        let written = self.device.write(buffer)?;
-        std::thread::sleep(Duration::from_millis(5));
-        Ok(written)
+        match self.device.send_feature_report(buffer) {
+            Ok(_) => {
+                std::thread::sleep(Duration::from_millis(10));
+                Ok(buffer.len())
+            }
+            Err(_) => {
+                let written = self.device.write(buffer)?;
+                std::thread::sleep(Duration::from_millis(10));
+                Ok(written)
+            }
+        }
     }
 
     /// Reads an incoming report with configurable timeout in milliseconds

@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { SensorConfig } from '@/types/mouse';
+import { useTranslation } from 'react-i18next';
 
 interface SensorViewProps {
   sensorConfig: SensorConfig;
@@ -20,6 +21,7 @@ export const SensorView: React.FC<SensorViewProps> = ({
   sensorConfig,
   onSaveSensorConfig,
 }) => {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<SensorConfig>(sensorConfig);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -28,10 +30,10 @@ export const SensorView: React.FC<SensorViewProps> = ({
     setIsSaving(true);
     try {
       await onSaveSensorConfig(config);
-      setStatusMessage('Sensor registers flashed to mouse memory successfully.');
+      setStatusMessage(t('sensor.saveSuccess'));
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
-      setStatusMessage(`Error applying sensor configuration: ${err?.message || err}`);
+      setStatusMessage(`Error: ${err?.message || err}`);
     } finally {
       setIsSaving(false);
     }
@@ -42,7 +44,7 @@ export const SensorView: React.FC<SensorViewProps> = ({
       {statusMessage && (
         <div className="rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center justify-between">
           <span>{statusMessage}</span>
-          <Button variant="ghost" size="xs" onClick={() => setStatusMessage(null)}>Dismiss</Button>
+          <Button variant="ghost" size="xs" onClick={() => setStatusMessage(null)}>{t('common.dismiss')}</Button>
         </div>
       )}
 
@@ -51,10 +53,10 @@ export const SensorView: React.FC<SensorViewProps> = ({
         <div>
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
             <Cpu className="size-4 text-red-500" />
-            PixArt PAW3395 Sensor Hardware Tuning
+            {t('sensor.title')}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Low-level hardware registers controlling optical tracking, lift-off cutoff, and debounce filters.
+            {t('sensor.subtitle')}
           </p>
         </div>
         <Button
@@ -63,7 +65,7 @@ export const SensorView: React.FC<SensorViewProps> = ({
           className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5 shadow-sm shadow-red-600/30"
         >
           <Check className="size-3.5" />
-          {isSaving ? 'Writing...' : 'Save to Mouse Flash'}
+          {isSaving ? t('common.saving') : t('sensor.saveButton')}
         </Button>
       </div>
 

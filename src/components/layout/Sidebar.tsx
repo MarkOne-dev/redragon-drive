@@ -10,6 +10,7 @@ import {
   Flame
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 export type NavTab = 
   | 'dashboard'
@@ -33,26 +34,28 @@ interface NavItem {
   badge?: string;
 }
 
-const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: Gauge },
-  { id: 'performance', label: 'DPI & Polling Rate', icon: Sliders },
-  { id: 'buttons', label: 'Button Mapping', icon: MousePointerClick },
-  { id: 'sensor', label: 'PAW3395 Sensor', icon: Cpu },
-  { id: 'pairing', label: '2.4GHz FastConnect', icon: Radio },
-  { id: 'diagnostics', label: 'Diagnostics & Monitor', icon: Activity },
-  { id: 'settings', label: 'Settings & PIDs', icon: Settings },
-];
-
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
   pollingRateHz,
 }) => {
+  const { t } = useTranslation();
+
+  const navItems: NavItem[] = [
+    { id: 'dashboard', label: t('nav.dashboard'), icon: Gauge },
+    { id: 'performance', label: t('nav.performance'), icon: Sliders },
+    { id: 'buttons', label: t('nav.buttons'), icon: MousePointerClick },
+    { id: 'sensor', label: t('nav.sensor'), icon: Cpu },
+    { id: 'pairing', label: t('nav.pairing'), icon: Radio },
+    { id: 'diagnostics', label: t('nav.diagnostics'), icon: Activity },
+    { id: 'settings', label: t('nav.settings'), icon: Settings },
+  ];
+
   return (
     <aside className="w-64 border-r border-border/50 bg-card/40 flex flex-col justify-between shrink-0 select-none">
       <div className="p-4 space-y-1">
-        <div className="px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Configuration Suite
+        <div className="px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">
+          {t('header.appName')}
         </div>
 
         {navItems.map((item) => {
@@ -91,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
             <span className="flex items-center gap-1">
               <Flame className="size-3 text-red-400" />
-              Active Response Rate
+              {t('dashboard.pollingRate')}
             </span>
             <span className="font-mono text-foreground font-semibold">
               {pollingRateHz} Hz
@@ -99,8 +102,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-red-600 to-amber-500 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(12, (pollingRateHz / 1000) * 100))}%` }}
+              className="h-full bg-red-500 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, (pollingRateHz / 1000) * 100)}%` }}
             />
           </div>
           <div className="flex justify-between text-[9px] text-muted-foreground mt-1 font-mono">

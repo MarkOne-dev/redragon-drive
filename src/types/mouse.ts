@@ -104,5 +104,16 @@ export interface DeviceFullState {
   battery: BatteryInfo;
   polling_rate: number;
   current_dpi_stage: number;
+  active_profile?: number;
   sensor: SensorConfig;
+}
+
+export interface MouseProfile {
+  id: number; // 1, 2, 3
+  name: string;
+  dpi_stages: DpiStageConfig[];
+  active_stage_index: number;
+  polling_rate: PollingRateHz;
+  button_mappings: Record<number, ButtonAction>;
+  sensor_config: SensorConfig;
 }

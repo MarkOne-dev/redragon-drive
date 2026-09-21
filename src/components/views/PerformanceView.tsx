@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Gauge, 
   Crosshair, 
@@ -7,11 +7,13 @@ import {
   SlidersHorizontal,
   Info,
   Link,
-  Unlink
+  Unlink,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { PollingRateHz, DpiStageConfig } from '@/types/mouse';
+import { useTranslation } from 'react-i18next';
 
 interface PerformanceViewProps {
   currentPollingRate: PollingRateHz;
@@ -37,10 +39,39 @@ const PRESET_COLORS: [number, number, number][] = [
   [0, 240, 255],   // Cyan
   [50, 255, 126],  // Neon Green
   [255, 211, 42],  // Gold Yellow
-  [156, 39, 176],  // Purple
-  [255, 121, 63],  // Orange
-  [255, 255, 255], // Pure White
+  [165, 94, 234],  // Purple
+  [255, 255, 255], // White
 ];
+
+// Perceptual DPI scale definition
+const DPI_SCALE_KEYPOINTS = [50, 800, 1600, 3200, 6400, 12800, 26000];
+const SLIDER_MAX = (DPI_SCALE_KEYPOINTS.length - 1) * 100;
+
+function dpiToSliderValue(dpi: number): number {
+  if (dpi <= DPI_SCALE_KEYPOINTS[0]) return 0;
+  if (dpi >= DPI_SCALE_KEYPOINTS[DPI_SCALE_KEYPOINTS.length - 1]) return SLIDER_MAX;
+  for (let i = 0; i < DPI_SCALE_KEYPOINTS.length - 1; i++) {
+    const d0 = DPI_SCALE_KEYPOINTS[i];
+    const d1 = DPI_SCALE_KEYPOINTS[i + 1];
+    if (dpi >= d0 && dpi <= d1) {
+      const fraction = (dpi - d0) / (d1 - d0);
+      return i * 100 + fraction * 100;
+    }
+  }
+  return 0;
+}
+
+function sliderValueToDpi(val: number): number {
+  if (val <= 0) return DPI_SCALE_KEYPOINTS[0];
+  if (val >= SLIDER_MAX) return DPI_SCALE_KEYPOINTS[DPI_SCALE_KEYPOINTS.length - 1];
+  const segIndex = Math.min(Math.floor(val / 100), DPI_SCALE_KEYPOINTS.length - 2);
+  const fraction = (val - segIndex * 100) / 100;
+  const d0 = DPI_SCALE_KEYPOINTS[segIndex];
+  const d1 = DPI_SCALE_KEYPOINTS[segIndex + 1];
+  const rawDpi = d0 + fraction * (d1 - d0);
+  const rounded = Math.round(rawDpi / 50) * 50;
+  return Math.max(50, Math.min(26000, rounded));
+}
 
 export const PerformanceView: React.FC<PerformanceViewProps> = ({
   currentPollingRate,
@@ -50,9 +81,11 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
   onSelectActiveStage,
   onUpdateDpiStage,
 }) => {
+  const { t } = useTranslation();
   const [isApplyingRate, setIsApplyingRate] = useState(false);
-  const [isApplyingDpi, setIsApplyingDpi] = useState(false);
+  const [syncState, setSyncState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeStage = dpiStages[activeStageIndex] || dpiStages[0];
   const [isDecoupledXY, setIsDecoupledXY] = useState<boolean>(
@@ -64,6 +97,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 
   // Sync with active stage when switching
   const handleStageSelect = (index: number) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     onSelectActiveStage(index);
     const stage = dpiStages[index];
     if (stage) {
@@ -74,56 +108,96 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
     }
   };
 
+  const queueDpiUpdate = (newX: number, newY: number, rgb: [number, number, number]) => {
+    setSyncState('saving');
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        await onUpdateDpiStage(activeStageIndex, newX, newY, rgb);
+        setSyncState('saved');
+        setTimeout(() => setSyncState('idle'), 2500);
+      } catch (err: any) {
+        setSyncState('idle');
+        setStatusMessage(`Error: ${err?.message || err}`);
+      }
+    }, 150);
+  };
+
   const handleApplyPollingRate = async (hz: PollingRateHz) => {
     setIsApplyingRate(true);
     try {
       await onSetPollingRate(hz);
-      setStatusMessage(`Report rate successfully switched to ${hz} Hz`);
+      setStatusMessage(`${t('performance.pollingRateTitle')}: ${hz} Hz`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
-      setStatusMessage(`Failed to set polling rate: ${err?.message || err}`);
+      setStatusMessage(`Error: ${err?.message || err}`);
     } finally {
       setIsApplyingRate(false);
     }
   };
 
-  const handleApplyDpi = async () => {
-    const roundDpi = (val: number) => Math.max(50, Math.min(26000, Math.round(val / 50) * 50));
-    const clampedX = roundDpi(localDpiX);
-    const clampedY = isDecoupledXY ? roundDpi(localDpiY) : clampedX;
-    setLocalDpiX(clampedX);
-    setLocalDpiY(clampedY);
-
-    setIsApplyingDpi(true);
-    try {
-      await onUpdateDpiStage(activeStageIndex, clampedX, clampedY, localRgb);
-      setStatusMessage(
-        isDecoupledXY
-          ? `Stage ${activeStageIndex + 1} set to X:${clampedX} / Y:${clampedY} DPI`
-          : `Stage ${activeStageIndex + 1} updated to ${clampedX} DPI`
-      );
-      setTimeout(() => setStatusMessage(null), 3000);
-    } catch (err: any) {
-      setStatusMessage(`Failed to update DPI: ${err?.message || err}`);
-    } finally {
-      setIsApplyingDpi(false);
-    }
-  };
-
   const handleToggleDecouple = () => {
-    if (isDecoupledXY) {
-      // Re-couple: match Y to X
+    const nextDecoupled = !isDecoupledXY;
+    setIsDecoupledXY(nextDecoupled);
+    if (!nextDecoupled) {
       setLocalDpiY(localDpiX);
+      queueDpiUpdate(localDpiX, localDpiX, localRgb);
     }
-    setIsDecoupledXY(!isDecoupledXY);
   };
 
-  const handleSetDpiPreset = (preset: number) => {
+  const handleDpiXChange = (val: number) => {
+    setLocalDpiX(val);
+    const nextY = isDecoupledXY ? localDpiY : val;
+    if (!isDecoupledXY) {
+      setLocalDpiY(val);
+    }
+    queueDpiUpdate(val, nextY, localRgb);
+  };
+
+  const handleDpiYChange = (val: number) => {
+    setLocalDpiY(val);
+    queueDpiUpdate(localDpiX, val, localRgb);
+  };
+
+  const handleSetDpiPreset = async (preset: number) => {
     setLocalDpiX(preset);
+    const nextY = isDecoupledXY ? localDpiY : preset;
     if (!isDecoupledXY) {
       setLocalDpiY(preset);
     }
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setSyncState('saving');
+    try {
+      await onUpdateDpiStage(activeStageIndex, preset, nextY, localRgb);
+      setSyncState('saved');
+      setTimeout(() => setSyncState('idle'), 2500);
+    } catch (err: any) {
+      setSyncState('idle');
+      setStatusMessage(`Error: ${err?.message || err}`);
+    }
   };
+
+  const handleColorChange = async (color: [number, number, number]) => {
+    setLocalRgb(color);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setSyncState('saving');
+    try {
+      await onUpdateDpiStage(activeStageIndex, localDpiX, localDpiY, color);
+      setSyncState('saved');
+      setTimeout(() => setSyncState('idle'), 2500);
+    } catch (err: any) {
+      setSyncState('idle');
+      setStatusMessage(`Error: ${err?.message || err}`);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto select-none">
@@ -131,7 +205,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
       {statusMessage && (
         <div className="rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center justify-between animate-in fade-in">
           <span>{statusMessage}</span>
-          <Button variant="ghost" size="xs" onClick={() => setStatusMessage(null)}>Dismiss</Button>
+          <Button variant="ghost" size="xs" onClick={() => setStatusMessage(null)}>{t('common.dismiss')}</Button>
         </div>
       )}
 
@@ -141,14 +215,14 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
           <div>
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
               <Gauge className="size-4 text-red-500" />
-              USB / Wireless Polling Rate (Report Frequency)
+              {t('performance.pollingRateTitle')}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Determines how many times per second the mouse sends coordinate & button packets to your system.
+              {t('performance.pollingRateSubtitle')}
             </p>
           </div>
           <Badge variant="outline" className="text-xs font-mono border-red-500/40 text-red-400 bg-red-500/10">
-            Current: {currentPollingRate} Hz
+            {t('performance.currentRate')}: {currentPollingRate} Hz
           </Badge>
         </div>
 
@@ -179,7 +253,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
         <div className="mt-4 p-3 rounded-lg bg-background/40 border border-border/40 flex items-center gap-2 text-xs text-muted-foreground">
           <Info className="size-3.5 text-blue-400 shrink-0" />
           <span>
-            <strong>1000 Hz (1.0ms)</strong> is the optimal native competitive rate for the Redragon M916-PRO 1K with low CPU overhead.
+            <strong>1000 Hz (1.0ms)</strong> {t('performance.optimalRateNote')}
           </span>
         </div>
       </div>
@@ -190,10 +264,10 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
           <div>
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
               <Crosshair className="size-4 text-red-500" />
-              PixArt PAW3395 DPI Stages & Independent Axes
+              {t('performance.dpiStages')}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Supports 50 to 26,000 DPI in granular 50 DPI steps with independent X/Y axes and LED indication per stage.
+              {t('performance.dpiStagesSubtitle')}
             </p>
           </div>
 
@@ -205,17 +279,27 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
               className={`text-xs gap-1.5 ${isDecoupledXY ? 'border-red-500 text-red-400 bg-red-500/10' : ''}`}
             >
               {isDecoupledXY ? <Unlink className="size-3.5" /> : <Link className="size-3.5" />}
-              {isDecoupledXY ? 'X/Y Independent (Active)' : 'Lock X/Y Axes'}
+              {isDecoupledXY ? t('performance.sync') : t('performance.decouple')}
             </Button>
 
-            <Button
-              onClick={handleApplyDpi}
-              disabled={isApplyingDpi}
-              className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5 shadow-sm shadow-red-600/30"
-            >
-              <Check className="size-3.5" />
-              {isApplyingDpi ? 'Applying...' : 'Apply Stage Settings'}
-            </Button>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background/60 border border-border/60 text-xs font-mono">
+              {syncState === 'saving' ? (
+                <span className="flex items-center gap-1.5 text-amber-400">
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  {t('common.saving')}
+                </span>
+              ) : syncState === 'saved' ? (
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <Check className="size-3.5" />
+                  {t('common.saved')}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Check className="size-3.5 text-emerald-500/70" />
+                  Auto-Sync
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -237,7 +321,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                 }`}
               >
                 <span className="size-2.5 rounded-full border border-white/20" style={{ backgroundColor: rgbColor }} />
-                <span>Stage {idx + 1}</span>
+                <span>{t('performance.stage')} {idx + 1}</span>
                 <span className="font-mono text-[11px] opacity-75">
                   {isSplit ? `(X:${stage.dpi_x}/Y:${stage.dpi_y})` : `(${stage.dpi_x})`}
                 </span>
@@ -255,7 +339,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <SlidersHorizontal className="size-3.5 text-red-400" />
-                  {isDecoupledXY ? 'Axis X Sensitivity (Horizontal)' : `Stage ${activeStageIndex + 1} Sensitivity`}
+                  {isDecoupledXY ? `${t('performance.axisX')} (${t('performance.sensitivity')})` : `${t('performance.stage')} ${activeStageIndex + 1} - ${t('performance.sensitivity')}`}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -264,11 +348,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                     max={26000}
                     step={50}
                     value={localDpiX}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setLocalDpiX(val);
-                      if (!isDecoupledXY) setLocalDpiY(val);
-                    }}
+                    onChange={(e) => handleDpiXChange(Number(e.target.value))}
                     className="w-24 px-2 py-1 bg-background border border-border rounded text-center font-mono font-bold text-sm text-foreground focus:outline-none focus:border-red-500"
                   />
                   <span className="text-xs font-mono text-muted-foreground">DPI</span>
@@ -277,25 +357,24 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 
               <input
                 type="range"
-                min={50}
-                max={26000}
-                step={50}
-                value={localDpiX}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setLocalDpiX(val);
-                  if (!isDecoupledXY) setLocalDpiY(val);
-                }}
+                min={0}
+                max={SLIDER_MAX}
+                step={1}
+                value={dpiToSliderValue(localDpiX)}
+                onChange={(e) => handleDpiXChange(sliderValueToDpi(Number(e.target.value)))}
                 className="w-full accent-red-600 cursor-pointer h-2 bg-muted rounded-lg appearance-none"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                <span>50</span>
-                <span>800</span>
-                <span>1,600</span>
-                <span>3,200</span>
-                <span>6,400</span>
-                <span>12,800</span>
-                <span>26,000 DPI</span>
+              <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                {DPI_SCALE_KEYPOINTS.map((pt) => (
+                  <button
+                    key={pt}
+                    type="button"
+                    onClick={() => handleDpiXChange(pt)}
+                    className="hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    {pt === 26000 ? `${pt.toLocaleString()} DPI` : pt.toLocaleString()}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -305,7 +384,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <SlidersHorizontal className="size-3.5 text-blue-400" />
-                    Axis Y Sensitivity (Vertical)
+                    {`${t('performance.axisY')} (${t('performance.sensitivity')})`}
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -314,7 +393,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                       max={26000}
                       step={50}
                       value={localDpiY}
-                      onChange={(e) => setLocalDpiY(Number(e.target.value))}
+                      onChange={(e) => handleDpiYChange(Number(e.target.value))}
                       className="w-24 px-2 py-1 bg-background border border-border rounded text-center font-mono font-bold text-sm text-foreground focus:outline-none focus:border-blue-500"
                     />
                     <span className="text-xs font-mono text-muted-foreground">DPI</span>
@@ -323,28 +402,31 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 
                 <input
                   type="range"
-                  min={50}
-                  max={26000}
-                  step={50}
-                  value={localDpiY}
-                  onChange={(e) => setLocalDpiY(Number(e.target.value))}
+                  min={0}
+                  max={SLIDER_MAX}
+                  step={1}
+                  value={dpiToSliderValue(localDpiY)}
+                  onChange={(e) => handleDpiYChange(sliderValueToDpi(Number(e.target.value)))}
                   className="w-full accent-blue-500 cursor-pointer h-2 bg-muted rounded-lg appearance-none"
                 />
-                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>50</span>
-                  <span>800</span>
-                  <span>1,600</span>
-                  <span>3,200</span>
-                  <span>6,400</span>
-                  <span>12,800</span>
-                  <span>26,000 DPI</span>
+                <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                  {DPI_SCALE_KEYPOINTS.map((pt) => (
+                    <button
+                      key={pt}
+                      type="button"
+                      onClick={() => handleDpiYChange(pt)}
+                      className="hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {pt === 26000 ? `${pt.toLocaleString()} DPI` : pt.toLocaleString()}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
 
             {/* Quick DPI Presets */}
             <div className="pt-2">
-              <span className="text-[11px] text-muted-foreground mb-1.5 block">Quick Sensitivity Presets:</span>
+              <span className="text-[11px] text-muted-foreground mb-1.5 block">{t('performance.quickPresets')}:</span>
               <div className="flex flex-wrap gap-1.5">
                 {[400, 800, 1200, 1600, 2400, 3200, 6400, 12000, 26000].map((preset) => (
                   <Button
@@ -365,7 +447,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
           <div className="rounded-xl border border-border/50 bg-background/50 p-4 space-y-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <Palette className="size-3.5 text-red-400" />
-              Stage Indicator LED Color
+              {t('performance.ledColor')}
             </label>
 
             <div className="flex items-center gap-3">
@@ -384,7 +466,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                 {PRESET_COLORS.map((color, i) => (
                   <button
                     key={i}
-                    onClick={() => setLocalRgb(color)}
+                    onClick={() => handleColorChange(color)}
                     className={`size-6 rounded-full border transition-transform hover:scale-110 ${
                       localRgb[0] === color[0] && localRgb[1] === color[1] && localRgb[2] === color[2]
                         ? 'ring-2 ring-white ring-offset-2 ring-offset-background scale-110'

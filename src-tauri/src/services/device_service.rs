@@ -36,6 +36,11 @@ impl DeviceService {
     pub fn connect_by_path(&self, path: &str) -> Result<DeviceInfo> {
         let dev = self.backend.open_path(path)?;
 
+        // Initialize and authorize PC driver session on the Compx MCU / dongle
+        let transport = HidTransport::new(&dev);
+        let auth_cmd = OutputReport8::set_driver_status_command(true);
+        let _ = transport.write_output_report(&auth_cmd);
+
         let mut detector = DeviceDetector::new()?;
         let all = detector.scan_all_hid_devices()?;
         let info = all
@@ -56,6 +61,11 @@ impl DeviceService {
     /// Disconnects the currently active device
     pub fn disconnect(&self) {
         let mut active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let unauth_cmd = OutputReport8::set_driver_status_command(false);
+            let _ = transport.write_output_report(&unauth_cmd);
+        }
         *active = None;
         let mut active_inf = self.active_info.lock().unwrap();
         *active_inf = None;
@@ -116,13 +126,49 @@ impl DeviceService {
         }
     }
 
-    /// Configures a DPI stage (X/Y sensitivity and RGB LED color)
-    pub fn set_dpi_stage(&self, stage_idx: u8, dpi_val: u16, rgb: [u8; 3]) -> Result<()> {
+    /// Writes arbitrary bytes into Compx MCU Flash memory registers
+    pub fn write_flash(&self, address: u16, data: &[u8]) -> Result<()> {
         let active = self.active_device.lock().unwrap();
         if let Some(ref dev) = *active {
             let transport = HidTransport::new(dev);
-            let cmd = OutputReport8::set_dpi_stage_command(stage_idx, dpi_val, rgb);
+            let cmd = OutputReport8::write_flash_command(address, data);
             transport.write_output_report(&cmd)?;
+            Ok(())
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to write flash memory".into(),
+            ))
+        }
+    }
+
+    /// Sets the active DPI stage index directly in the mouse MCU Flash (Address 0x0002)
+    pub fn set_active_dpi_stage(&self, stage_idx: u8) -> Result<()> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let cmd = OutputReport8::set_active_dpi_stage_command(stage_idx);
+            transport.write_output_report(&cmd)?;
+            Ok(())
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to set active DPI stage".into(),
+            ))
+        }
+    }
+
+    /// Configures a DPI stage resolution (X and Y axis) and RGB LED indicator color
+    pub fn set_dpi_stage(&self, stage_idx: u8, dpi_x: u16, dpi_y: u16, rgb: [u8; 3]) -> Result<()> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            // Write DPI resolution (Address 0x000C + stage * 4)
+            let dpi_cmd = OutputReport8::set_dpi_stage_command(stage_idx, dpi_x, dpi_y);
+            transport.write_output_report(&dpi_cmd)?;
+
+            // Write RGB indicator LED color (Address 0x002C + stage * 4)
+            let color_cmd = OutputReport8::set_dpi_color_command(stage_idx, rgb);
+            transport.write_output_report(&color_cmd)?;
+
             Ok(())
         } else {
             Err(RedragonError::UnexpectedResponse(
@@ -172,14 +218,22 @@ impl DeviceService {
             let cmd = OutputReport8::query_battery_command();
             transport.write_output_report(&cmd)?;
 
-            // Non-blocking quick check for response (50ms timeout)
+            // Non-blocking quick check for response (100ms timeout)
             let mut buf = [0u8; 17];
-            if let Ok(bytes_read) = dev.read_timeout(&mut buf, 50) {
-                if bytes_read >= 3 {
-                    let level = buf[1].min(100);
-                    if level > 0 {
-                        let mut b = self.active_battery.lock().unwrap();
-                        b.percentage = level;
+            if let Ok(bytes_read) = dev.read_timeout(&mut buf, 100) {
+                if bytes_read >= 10
+                    && buf[0] == 8
+                    && buf[1] == crate::protocols::compx::commands::UsbCommandId::BatteryLevel as u8
+                {
+                    let level = buf[6].min(100);
+                    let is_charging = buf[5] > 0;
+                    let voltage_mv = ((buf[8] as u16) << 8) | (buf[9] as u16);
+
+                    let mut b = self.active_battery.lock().unwrap();
+                    b.percentage = level;
+                    b.is_charging = is_charging;
+                    if voltage_mv >= 3000 && voltage_mv <= 4500 {
+                        b.voltage_mv = voltage_mv;
                     }
                 }
             }
@@ -209,6 +263,43 @@ impl DeviceService {
         } else {
             Err(RedragonError::UnexpectedResponse(
                 "No device connected to configure sensor features".into(),
+            ))
+        }
+    }
+
+    /// Sets the active on-board hardware profile (0 = Config 1, 1 = Config 2, 2 = Config 3, etc.)
+    pub fn set_active_profile(&self, profile_idx: u8) -> Result<()> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let cmd = OutputReport8::set_profile_command(profile_idx);
+            transport.write_output_report(&cmd)?;
+            Ok(())
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to set active profile".into(),
+            ))
+        }
+    }
+
+    /// Queries the currently active on-board hardware profile index from the mouse
+    pub fn get_active_profile(&self) -> Result<u8> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let cmd = OutputReport8::get_profile_command();
+            let _ = transport.write_output_report(&cmd);
+
+            let mut in_buf = [0u8; 17];
+            if let Ok(len) = dev.read_timeout(&mut in_buf, 100) {
+                if len >= 3 {
+                    return Ok(in_buf[2]);
+                }
+            }
+            Ok(0)
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to get active profile".into(),
             ))
         }
     }

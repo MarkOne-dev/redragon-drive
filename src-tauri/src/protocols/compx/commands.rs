@@ -5,6 +5,7 @@ pub const COMPX_VENDOR_ID: u16 = 0x3554;
 pub const KNOWN_PIDS: &[u16] = &[
     0xF55E, // M916-PRO Mouse (Wired / Direct connection)
     0xF55D, // M916-PRO Dongle 2.4G (Wireless receiver)
+    0xFA09, // Compx 2.4G Receiver Variant
     0xF55F, // M916-PRO Alternate Dongle
     0xF501, // M916-PRO Dongle v1
     0x2635, // GamingPro2635 Standard

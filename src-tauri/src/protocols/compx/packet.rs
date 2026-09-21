@@ -55,27 +55,90 @@ impl OutputReport8 {
         cmd.to_bytes()
     }
 
-    /// Command to set the polling rate (Hz)
-    pub fn set_polling_rate_command(rate: crate::core::models::PollingRate) -> [u8; Self::PACKET_LEN] {
+    /// Command to set the active hardware profile on the mouse (0..3)
+    pub fn set_profile_command(profile_idx: u8) -> [u8; Self::PACKET_LEN] {
         let mut payload = [0u8; 14];
-        payload[0] = rate.mask(); // 1=1000Hz, 2=500Hz, 4=250Hz, 8=125Hz, 16=2000Hz, 32=4000Hz
+        payload[0] = profile_idx; // 0=Config1, 1=Config2, 2=Config3, 3=Config4
         let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::SetCurrentConfig as u8, payload);
         cmd.to_bytes()
     }
 
-    /// Command to set a DPI stage sensitivity and indicator LED color
-    pub fn set_dpi_stage_command(stage_idx: u8, dpi_val: u16, rgb: [u8; 3]) -> [u8; Self::PACKET_LEN] {
-        let mut payload = [0u8; 14];
-        payload[0] = stage_idx; // Stage index (0..7)
-        // PixArt PAW3395 DPI steps are mapped in increments of 50 DPI
-        let dpi_step = (dpi_val / 50) as u8;
-        payload[1] = dpi_step; // X DPI
-        payload[2] = dpi_step; // Y DPI
-        payload[3] = rgb[0];   // R
-        payload[4] = rgb[1];   // G
-        payload[5] = rgb[2];   // B
-        let cmd = Self::new(crate::protocols::compx::commands::opcodes::CMD_SET_DPI, payload);
+    /// Command to query the active hardware profile from the mouse
+    pub fn get_profile_command() -> [u8; Self::PACKET_LEN] {
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::GetCurrentConfig as u8, [0u8; 14]);
         cmd.to_bytes()
+    }
+
+    /// Authorizes and unlocks PC driver mode on the Compx mouse MCU / dongle (UsbCommandId::PCDriverStatus = 2)
+    pub fn set_driver_status_command(is_active: bool) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[3] = 1; // length 1 byte
+        payload[4] = if is_active { 1 } else { 0 };
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::PCDriverStatus as u8, payload);
+        cmd.to_bytes()
+    }
+
+    /// Command to set the polling rate (Hz)
+    pub fn set_polling_rate_command(rate: crate::core::models::PollingRate) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[0] = rate.mask(); // 1=1000Hz, 2=500Hz, 4=250Hz, 8=125Hz, 16=2000Hz, 32=4000Hz
+        let cmd = Self::new(crate::protocols::compx::commands::opcodes::CMD_SET_POLLING_RATE, payload);
+        cmd.to_bytes()
+    }
+
+    /// Universal command to write raw bytes into Compx MCU Flash memory registers
+    pub fn write_flash_command(address: u16, data: &[u8]) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[0] = 0x00; // Sub-id / reserved
+        payload[1] = (address >> 8) as u8; // Address High
+        payload[2] = (address & 0xFF) as u8; // Address Low
+        let len = data.len().min(10);
+        payload[3] = len as u8; // Byte count (max 10 bytes per packet)
+        payload[4..4 + len].copy_from_slice(&data[..len]);
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::WriteFlashData as u8, payload);
+        cmd.to_bytes()
+    }
+
+    /// Universal command to read raw bytes from Compx MCU Flash memory registers
+    pub fn read_flash_command(address: u16, len: u8) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[0] = 0x00;
+        payload[1] = (address >> 8) as u8;
+        payload[2] = (address & 0xFF) as u8;
+        payload[3] = len.min(10);
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::ReadFlashData as u8, payload);
+        cmd.to_bytes()
+    }
+
+    /// Sets the active DPI stage index directly in MCU Flash (Address 0x0004 / currentDPI)
+    /// Compx flash protocol requires a checksum byte: [stage_idx, 0x55 - stage_idx]
+    pub fn set_active_dpi_stage_command(stage_idx: u8) -> [u8; Self::PACKET_LEN] {
+        let chk = 0x55u8.wrapping_sub(stage_idx);
+        Self::write_flash_command(0x0004, &[stage_idx, chk])
+    }
+
+    /// Configures the DPI resolution for a stage in Compx Flash (Address 0x000C + stage * 4)
+    /// Encodes xDPI, yDPI, DPIex, and Compx checksum (0x55 - (x + y + ex)) for PixArt PAW3395 (50-26,000 DPI)
+    pub fn set_dpi_stage_command(stage_idx: u8, dpi_x: u16, dpi_y: u16) -> [u8; Self::PACKET_LEN] {
+        let x_step = (dpi_x / 50).saturating_sub(1);
+        let y_step = (dpi_y / 50).saturating_sub(1);
+        let x_hi = (x_step >> 8) as u8;
+        let y_hi = (y_step >> 8) as u8;
+        let dpiex = (x_hi << 2) | (y_hi << 6);
+        let b0 = x_step as u8;
+        let b1 = y_step as u8;
+        let b2 = dpiex;
+        let chk = 0x55u8.wrapping_sub(b0.wrapping_add(b1).wrapping_add(b2));
+        let data = [b0, b1, b2, chk];
+        Self::write_flash_command(0x000C + (stage_idx as u16) * 4, &data)
+    }
+
+    /// Configures the RGB LED indicator color for a DPI stage (Address 0x002C + stage * 4)
+    /// Compx flash protocol requires a checksum byte: [R, G, B, 0x55 - (R + G + B)]
+    pub fn set_dpi_color_command(stage_idx: u8, rgb: [u8; 3]) -> [u8; Self::PACKET_LEN] {
+        let chk = 0x55u8.wrapping_sub(rgb[0].wrapping_add(rgb[1]).wrapping_add(rgb[2]));
+        let data = [rgb[0], rgb[1], rgb[2], chk];
+        Self::write_flash_command(0x002C + (stage_idx as u16) * 4, &data)
     }
 
     /// Command to reassign a physical mouse button (index 0 to 15)
@@ -258,17 +321,78 @@ mod tests {
     fn test_set_polling_rate_command_valid() {
         let bytes = OutputReport8::set_polling_rate_command(crate::core::models::PollingRate::Hz1000);
         assert_eq!(bytes[0], 8);
-        assert_eq!(bytes[1], 15); // SetCurrentConfig
-        assert_eq!(bytes[2], 1);  // 1000Hz mask
+        assert_eq!(bytes[1], 0x21); // CMD_SET_POLLING_RATE
+        assert_eq!(bytes[2], 1);    // 1000Hz mask
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_profile_command_valid() {
+        let bytes = OutputReport8::set_profile_command(1); // Profile 2 (index 1)
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 15); // SetCurrentConfig (opcode 15)
+        assert_eq!(bytes[2], 1);  // Profile index 1
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_get_profile_command_valid() {
+        let bytes = OutputReport8::get_profile_command();
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 14); // GetCurrentConfig (opcode 14)
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_active_dpi_stage_command_valid() {
+        let bytes = OutputReport8::set_active_dpi_stage_command(2); // Stage 3 (index 2)
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 7); // WriteFlashData
+        assert_eq!(bytes[3], 0); // Addr High
+        assert_eq!(bytes[4], 4); // Addr Low: 0x0004 (currentDPI)
+        assert_eq!(bytes[5], 2); // Length: 2 bytes
+        assert_eq!(bytes[6], 2); // Stage index: 2
+        assert_eq!(bytes[7], 0x55 - 2); // Checksum byte: 0x53
         assert!(is_packet_valid(&bytes));
     }
 
     #[test]
     fn test_set_dpi_stage_command_valid() {
-        let bytes = OutputReport8::set_dpi_stage_command(1, 1600, [255, 0, 0]);
+        let bytes = OutputReport8::set_dpi_stage_command(1, 1600, 1600); // Stage index 1
         assert_eq!(bytes[0], 8);
-        assert_eq!(bytes[2], 1);  // stage 1
-        assert_eq!(bytes[3], 32); // 1600 / 50 = 32 steps
+        assert_eq!(bytes[1], 7);  // WriteFlashData
+        assert_eq!(bytes[3], 0);  // Addr High
+        assert_eq!(bytes[4], 16); // Addr Low: 0x000C + 1*4 = 0x0010 = 16
+        assert_eq!(bytes[5], 4);  // Length: 4 bytes
+        assert_eq!(bytes[6], 31); // (1600 / 50) - 1 = 31
+        assert_eq!(bytes[7], 31); // yDPI = 31
+        assert_eq!(bytes[8], 0);  // DPIex = 0
+        assert_eq!(bytes[9], 0x55u8.wrapping_sub(31 + 31 + 0)); // Compx checksum
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_dpi_color_command_valid() {
+        let bytes = OutputReport8::set_dpi_color_command(0, [255, 128, 0]);
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 7);  // WriteFlashData
+        assert_eq!(bytes[3], 0);  // Addr High
+        assert_eq!(bytes[4], 44); // Addr Low: 0x002C + 0*4 = 0x002C = 44
+        assert_eq!(bytes[5], 4);  // Length: 4 bytes
+        assert_eq!(bytes[6], 255);
+        assert_eq!(bytes[7], 128);
+        assert_eq!(bytes[8], 0);
+        assert_eq!(bytes[9], 0x55u8.wrapping_sub(255u8.wrapping_add(128))); // Compx checksum
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_driver_status_command_valid() {
+        let bytes = OutputReport8::set_driver_status_command(true);
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 2); // PCDriverStatus
+        assert_eq!(bytes[5], 1); // length
+        assert_eq!(bytes[6], 1); // is_active
         assert!(is_packet_valid(&bytes));
     }
 }

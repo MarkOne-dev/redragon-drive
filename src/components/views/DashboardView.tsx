@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { DeviceInfo, BatteryInfo, MouseStats } from '@/types/mouse';
+import { useTranslation } from 'react-i18next';
 
 interface DashboardViewProps {
   device: DeviceInfo | null;
@@ -35,13 +36,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onRefreshBattery,
 }) => {
+  const { t } = useTranslation();
   const latencyMs = (1000 / (pollingRateHz || 1000)).toFixed(2);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Top Banner Hero */}
       <div className="relative overflow-hidden rounded-2xl border border-red-500/20 bg-gradient-to-r from-red-950/40 via-background to-background p-6 shadow-lg">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div 
+          className="absolute top-0 right-0 w-96 h-96 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(239, 68, 68, 0.12) 0%, transparent 70%)' }}
+        />
         
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
           <div>
@@ -54,10 +59,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-foreground uppercase">
-              Redragon M916-PRO 1K Gaming Mouse
+              {t('dashboard.deviceModel')}
             </h2>
             <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-              Equipped with PixArt PAW3395 ultra-high-precision optical sensor and Compx CX52850P microcontroller with FastConnect 2.4GHz ultra-low-latency RF protocol.
+              {t('dashboard.subtitle')}
             </p>
           </div>
 
@@ -66,14 +71,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onClick={() => onNavigate('performance')}
               className="bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-md shadow-red-600/30"
             >
-              Configure DPI & Hz
+              {t('nav.performance')}
             </Button>
             <Button
               variant="outline"
               onClick={() => onNavigate('pairing')}
               className="border-border text-xs"
             >
-              Pairing Tool
+              {t('nav.pairing')}
             </Button>
           </div>
         </div>
@@ -84,7 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Metric 1: Polling Rate & Latency */}
         <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col justify-between hover:border-red-500/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium uppercase tracking-wider">Report Rate</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.pollingRate')}</span>
             <Gauge className="size-4 text-red-500" />
           </div>
           <div className="my-3">
@@ -93,7 +98,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
               <Timer className="size-3 text-red-400" />
-              <span>Input Latency: <strong className="text-foreground font-mono">{latencyMs} ms</strong></span>
+              <span>{t('dashboard.latency')}: <strong className="text-foreground font-mono">{latencyMs} ms</strong></span>
             </div>
           </div>
           <Button 
@@ -102,14 +107,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={() => onNavigate('performance')}
             className="w-full justify-start text-[11px] text-muted-foreground hover:text-red-400 p-0 h-auto"
           >
-            Adjust rate →
+            {t('common.edit')} →
           </Button>
         </div>
 
         {/* Metric 2: Active DPI */}
         <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col justify-between hover:border-red-500/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium uppercase tracking-wider">Active DPI</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.currentDpi')}</span>
             <Crosshair className="size-4" style={{ color: dpiColor }} />
           </div>
           <div className="my-3">
@@ -118,7 +123,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="size-3 rounded-full border border-white/20 shadow-xs" style={{ backgroundColor: dpiColor }} />
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              <span>PixArt PAW3395 (50 - 26,000 DPI)</span>
+              <span>{t('dashboard.sensorModel')}</span>
             </div>
           </div>
           <Button 
@@ -127,14 +132,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={() => onNavigate('performance')}
             className="w-full justify-start text-[11px] text-muted-foreground hover:text-red-400 p-0 h-auto"
           >
-            Configure stages →
+            {t('performance.dpiStages')} →
           </Button>
         </div>
 
         {/* Metric 3: Battery Telemetry */}
         <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col justify-between hover:border-red-500/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium uppercase tracking-wider">Battery Power</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.batteryStatus')}</span>
             <Battery className="size-4 text-emerald-400" />
           </div>
           <div className="my-3">
@@ -143,7 +148,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
               <Zap className="size-3 text-amber-400" />
-              <span>Voltage: <strong className="text-foreground font-mono">{(battery.voltage_mv / 1000).toFixed(2)} V</strong></span>
+              <span>{t('common.battery')}: <strong className="text-foreground font-mono">{(battery.voltage_mv / 1000).toFixed(2)} {t('common.volts')}</strong></span>
             </div>
           </div>
           <Button 
@@ -152,22 +157,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={onRefreshBattery}
             className="w-full justify-start text-[11px] text-muted-foreground hover:text-red-400 p-0 h-auto"
           >
-            Poll battery status ↻
+            {t('common.loading')} ↻
           </Button>
         </div>
 
         {/* Metric 4: Connection Link */}
         <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col justify-between hover:border-red-500/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium uppercase tracking-wider">Connection Link</span>
+            <span className="text-xs font-medium uppercase tracking-wider">{t('dashboard.connectionType')}</span>
             {device?.is_wired ? <Usb className="size-4 text-blue-400" /> : <Wifi className="size-4 text-emerald-400" />}
           </div>
           <div className="my-3">
             <div className="text-base font-bold text-foreground">
-              {device ? (device.is_wired ? 'USB-C High Speed' : '2.4G RF FastConnect') : 'Disconnected'}
+              {device ? (device.is_wired ? t('common.wired') : t('common.wireless')) : t('common.disconnected')}
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              <span>{device ? 'Device synchronized & active' : 'Plug dongle or mouse'}</span>
+              <span>{device ? t('common.connected') : t('header.disconnected')}</span>
             </div>
           </div>
           <Button 
@@ -176,7 +181,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={() => onNavigate('diagnostics')}
             className="w-full justify-start text-[11px] text-muted-foreground hover:text-red-400 p-0 h-auto"
           >
-            View diagnostics →
+            {t('nav.diagnostics')} →
           </Button>
         </div>
       </div>

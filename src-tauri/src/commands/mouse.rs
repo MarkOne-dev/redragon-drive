@@ -49,11 +49,28 @@ pub fn set_mouse_polling_rate(state: tauri::State<'_, AppState>, hz: u32) -> Res
 }
 
 #[tauri::command]
-pub fn set_mouse_dpi(state: tauri::State<'_, AppState>, stage_idx: u8, dpi_val: u16, r: u8, g: u8, b: u8) -> Result<(), String> {
-    if dpi_val < 50 || dpi_val > 26000 {
+pub fn set_mouse_dpi(
+    state: tauri::State<'_, AppState>,
+    stage_idx: u8,
+    dpi_x: u16,
+    dpi_y: Option<u16>,
+    r: u8,
+    g: u8,
+    b: u8,
+) -> Result<(), String> {
+    let y = dpi_y.unwrap_or(dpi_x);
+    if dpi_x < 50 || dpi_x > 26000 || y < 50 || y > 26000 {
         return Err("Invalid DPI range for PixArt PAW3395 (must be between 50 and 26,000)".into());
     }
-    state.device_service.set_dpi_stage(stage_idx, dpi_val, [r, g, b]).map_err(|e| e.to_string())
+    state.device_service.set_dpi_stage(stage_idx, dpi_x, y, [r, g, b]).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_active_dpi_stage(state: tauri::State<'_, AppState>, stage_idx: u8) -> Result<(), String> {
+    if stage_idx > 7 {
+        return Err("DPI stage index must be between 0 and 7".into());
+    }
+    state.device_service.set_active_dpi_stage(stage_idx).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -79,12 +96,23 @@ pub fn set_mouse_sensor(state: tauri::State<'_, AppState>, config: crate::core::
     state.device_service.set_sensor_config(&config).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn set_active_profile(profile_idx: u8, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.device_service.set_active_profile(profile_idx).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_active_profile(state: tauri::State<'_, AppState>) -> Result<u8, String> {
+    state.device_service.get_active_profile().map_err(|e| e.to_string())
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeviceFullState {
     pub device: Option<DeviceInfo>,
     pub battery: crate::core::models::BatteryInfo,
     pub polling_rate: u32,
     pub current_dpi_stage: u8,
+    pub active_profile: Option<u8>,
     pub sensor: crate::core::models::SensorConfig,
 }
 
@@ -94,12 +122,14 @@ pub fn get_device_full_state(state: tauri::State<'_, AppState>) -> DeviceFullSta
     let battery = state.device_service.get_battery_info();
     let stats = state.diagnostics_service.get_stats();
     let polling_rate = if stats.current_polling_rate > 0 { stats.current_polling_rate } else { 1000 };
+    let active_profile = state.device_service.get_active_profile().ok();
 
     DeviceFullState {
         device,
         battery,
         polling_rate,
         current_dpi_stage: 2,
+        active_profile,
         sensor: crate::core::models::SensorConfig::default(),
     }
 }

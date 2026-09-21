@@ -74,7 +74,10 @@
     "pollingRateTitle": "Tasa de Sondeo USB / Inalámbrica",
     "pollingRateSubtitle": "Define cuántas veces por segundo el mouse envía coordenadas al sistema",
     "currentRate": "Actual",
-    "optimalRateNote": "es la tasa óptima competitiva para el Redragon M916-PRO con bajo consumo de CPU."
+    "optimalRateNote": "es la tasa óptima competitiva para el Redragon M916-PRO con bajo consumo de CPU.",
+    "sensitivity": "Sensibilidad",
+    "quickPresets": "Atajos Rápidos de Sensibilidad",
+    "ledColor": "Color del Indicador LED de la Etapa"
   },
   "buttons": {
     "title": "Suite de Asignación de Botones",

@@ -79,12 +79,23 @@ pub fn set_mouse_sensor(state: tauri::State<'_, AppState>, config: crate::core::
     state.device_service.set_sensor_config(&config).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn set_active_profile(profile_idx: u8, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.device_service.set_active_profile(profile_idx).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_active_profile(state: tauri::State<'_, AppState>) -> Result<u8, String> {
+    state.device_service.get_active_profile().map_err(|e| e.to_string())
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeviceFullState {
     pub device: Option<DeviceInfo>,
     pub battery: crate::core::models::BatteryInfo,
     pub polling_rate: u32,
     pub current_dpi_stage: u8,
+    pub active_profile: Option<u8>,
     pub sensor: crate::core::models::SensorConfig,
 }
 
@@ -94,12 +105,14 @@ pub fn get_device_full_state(state: tauri::State<'_, AppState>) -> DeviceFullSta
     let battery = state.device_service.get_battery_info();
     let stats = state.diagnostics_service.get_stats();
     let polling_rate = if stats.current_polling_rate > 0 { stats.current_polling_rate } else { 1000 };
+    let active_profile = state.device_service.get_active_profile().ok();
 
     DeviceFullState {
         device,
         battery,
         polling_rate,
         current_dpi_stage: 2,
+        active_profile,
         sensor: crate::core::models::SensorConfig::default(),
     }
 }

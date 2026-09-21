@@ -41,8 +41,12 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="h-16 border-b border-border/50 bg-card/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
       {/* Brand & Model */}
       <div className="flex items-center gap-3">
-        <div className="size-9 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-          <span className="text-red-500 font-black text-lg tracking-tighter">RD</span>
+        <div className="size-10 rounded-xl bg-gradient-to-br from-red-600/20 via-red-950/30 to-background border border-red-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.2)] p-1.5 transition-transform hover:scale-105 overflow-hidden shrink-0">
+          <img 
+            src="/assets/logo.png" 
+            alt="Redragon Logo" 
+            className="w-full h-full object-contain dark:brightness-100 brightness-0 dark:drop-shadow-[0_0_8px_rgba(239,68,68,0.5)] transition-all" 
+          />
         </div>
         <div>
           <div className="flex items-center gap-2">

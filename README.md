@@ -34,131 +34,82 @@ High-performance, modern, memory-safe gaming mouse management driver and desktop
 
 ---
 
-## Getting Started
+## Installation
 
-### Prerequisites
-- [Bun](https://bun.sh) (v1.4+) or Node.js (18+)
-- [Rust toolchain](https://www.rust-lang.org/) (1.80+)
-- Linux HID development headers (`libudev-dev`) or Windows / macOS platform dependencies
-
-### Installation from Source
-
-```bash
-# Clone the repository
-git clone git@github.com:MarkOne-dev/redragon-drive.git
-cd redragon-drive
-
-# Install frontend dependencies
-bun install
-```
-
-### Running Development Server
-
-```bash
-# Run desktop app via Tauri v2
-bun run tauri dev
-
-# Or run frontend in browser preview mode
-bun run dev
-```
-
-### Building Packages for Linux
-
-```bash
-# Compile and generate Linux release bundles (.AppImage, .deb, .rpm)
-NO_STRIP=true bun run tauri build
-```
-
----
-
-## Linux Installation by Distribution
+Download the latest release for your Linux distribution from [GitHub Releases](https://github.com/MarkOne-dev/redragon-drive/releases/latest).
 
 ### 1. Arch Linux / CachyOS / Manjaro / EndeavourOS
 
-#### Option A: Standalone AppImage (Fastest)
+#### Method A: AUR Helper (paru / yay)
+Install directly using your preferred AUR package manager:
 ```bash
-chmod +x "Redragon M916 Suite_0.3.0_amd64.AppImage"
-./"Redragon M916 Suite_0.3.0_amd64.AppImage"
-```
-If your system environment lacks FUSE2, run with the extraction flag:
-```bash
-./"Redragon M916 Suite_0.3.0_amd64.AppImage" --appimage-extract-and-run
+# Using paru
+paru -S redragon-m916-suite-bin
+
+# Using yay
+yay -S redragon-m916-suite-bin
 ```
 
-#### Option B: Convert and Install via debtap
+#### Method B: Standalone AppImage
+Download the `.AppImage` from GitHub Releases, make it executable, and run:
 ```bash
-# Install debtap if not present (available in AUR: yay -S debtap)
+chmod +x Redragon*.AppImage
+./Redragon*.AppImage
+```
+If your system lacks FUSE2, run with:
+```bash
+./Redragon*.AppImage --appimage-extract-and-run
+```
+
+#### Method C: Convert from deb via debtap
+```bash
+# Update debtap database if needed
 sudo debtap -u
-debtap "Redragon M916 Suite_0.3.0_amd64.deb"
+debtap Redragon*.deb
 sudo pacman -U redragon-m916-suite-*.pkg.tar.zst
-```
-
-#### Option C: Native Build on Arch / CachyOS
-```bash
-sudo pacman -S --needed base-devel webkit2gtk-4.1 libsoup3 openssl libappindicator-gtk3
-bun install
-NO_STRIP=true bun run tauri build
 ```
 
 ---
 
 ### 2. Ubuntu / Debian / Linux Mint / Pop!_OS
 
-Install the generated `.deb` package:
+Download the `.deb` package from GitHub Releases and install with `apt`:
 ```bash
-sudo apt install ./"Redragon M916 Suite_0.3.0_amd64.deb"
-```
-Or with `dpkg`:
-```bash
-sudo dpkg -i ./"Redragon M916 Suite_0.3.0_amd64.deb"
-sudo apt-get install -f
+sudo apt install ./Redragon*.deb
 ```
 
 ---
 
 ### 3. Fedora / RHEL / openSUSE
 
-Install the generated `.rpm` package:
+Download the `.rpm` package from GitHub Releases and install with your package manager:
 ```bash
 # Fedora / RHEL
-sudo dnf install ./"Redragon M916 Suite-0.3.0-1.x86_64.rpm"
+sudo dnf install ./Redragon*.rpm
 
 # openSUSE
-sudo zypper install ./"Redragon M916 Suite-0.3.0-1.x86_64.rpm"
+sudo zypper install ./Redragon*.rpm
 ```
 
 ---
 
 ### 4. Universal Linux (AppImage)
 
-Compatible with any Linux distribution with modern glibc:
+Compatible with any modern Linux distribution:
 ```bash
-chmod +x "Redragon M916 Suite_0.3.0_amd64.AppImage"
-./"Redragon M916 Suite_0.3.0_amd64.AppImage"
+chmod +x Redragon*.AppImage
+./Redragon*.AppImage
 ```
 
 ---
 
 ## USB Permissions (udev rules)
 
-To allow the application to communicate with the mouse and 2.4GHz wireless dongle via `/dev/hidraw*` without requiring superuser (root) privileges, add the following udev rule:
+To allow the application to configure the mouse and 2.4GHz wireless dongle via `/dev/hidraw*` without requiring root permissions, install the udev rule:
 
 ```bash
 echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="3554", MODE="0666"' | sudo tee /etc/udev/rules.d/99-redragon.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
-```
-
----
-
-### Running Tests
-
-```bash
-# Backend unit tests
-cargo test --manifest-path src-tauri/Cargo.toml
-
-# Frontend typecheck & production build
-bun run typecheck
-bun run build
 ```
 
 ---

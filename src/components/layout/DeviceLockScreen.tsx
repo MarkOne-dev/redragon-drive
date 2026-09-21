@@ -27,7 +27,8 @@ export const DeviceLockScreen: React.FC<DeviceLockScreenProps> = ({
   onScan,
   detectedName,
 }) => {
-  const { t, i18n } = useTranslation();
+  const { t: translate, i18n } = useTranslation();
+  const t = (key: string) => (translate as any)(key);
   const { theme, setTheme } = useTheme();
 
   const toggleLanguage = () => {

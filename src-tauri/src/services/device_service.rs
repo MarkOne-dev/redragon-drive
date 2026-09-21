@@ -116,13 +116,49 @@ impl DeviceService {
         }
     }
 
-    /// Configures a DPI stage (X/Y sensitivity and RGB LED color)
-    pub fn set_dpi_stage(&self, stage_idx: u8, dpi_val: u16, rgb: [u8; 3]) -> Result<()> {
+    /// Writes arbitrary bytes into Compx MCU Flash memory registers
+    pub fn write_flash(&self, address: u16, data: &[u8]) -> Result<()> {
         let active = self.active_device.lock().unwrap();
         if let Some(ref dev) = *active {
             let transport = HidTransport::new(dev);
-            let cmd = OutputReport8::set_dpi_stage_command(stage_idx, dpi_val, rgb);
+            let cmd = OutputReport8::write_flash_command(address, data);
             transport.write_output_report(&cmd)?;
+            Ok(())
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to write flash memory".into(),
+            ))
+        }
+    }
+
+    /// Sets the active DPI stage index directly in the mouse MCU Flash (Address 0x0002)
+    pub fn set_active_dpi_stage(&self, stage_idx: u8) -> Result<()> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let cmd = OutputReport8::set_active_dpi_stage_command(stage_idx);
+            transport.write_output_report(&cmd)?;
+            Ok(())
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to set active DPI stage".into(),
+            ))
+        }
+    }
+
+    /// Configures a DPI stage resolution (X and Y axis) and RGB LED indicator color
+    pub fn set_dpi_stage(&self, stage_idx: u8, dpi_x: u16, dpi_y: u16, rgb: [u8; 3]) -> Result<()> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            // Write DPI resolution (Address 0x000C + stage * 4)
+            let dpi_cmd = OutputReport8::set_dpi_stage_command(stage_idx, dpi_x, dpi_y);
+            transport.write_output_report(&dpi_cmd)?;
+
+            // Write RGB indicator LED color (Address 0x002C + stage * 4)
+            let color_cmd = OutputReport8::set_dpi_color_command(stage_idx, rgb);
+            transport.write_output_report(&color_cmd)?;
+
             Ok(())
         } else {
             Err(RedragonError::UnexpectedResponse(

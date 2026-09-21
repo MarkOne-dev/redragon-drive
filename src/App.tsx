@@ -124,14 +124,11 @@ export function App() {
     const target = profiles[p] || profiles[1];
     try {
       await mouseApi.setPollingRate(target.polling_rate);
-      const activeStage = target.dpi_stages[target.active_stage_index] || target.dpi_stages[0];
-      await mouseApi.setDpi(
-        target.active_stage_index,
-        activeStage.dpi_x,
-        activeStage.rgb[0],
-        activeStage.rgb[1],
-        activeStage.rgb[2]
-      );
+      for (let i = 0; i < target.dpi_stages.length; i++) {
+        const s = target.dpi_stages[i];
+        await mouseApi.setDpi(i, s.dpi_x, s.dpi_y, s.rgb[0], s.rgb[1], s.rgb[2]);
+      }
+      await mouseApi.setActiveDpiStage(target.active_stage_index);
       await mouseApi.setSensor(target.sensor_config);
       for (const [btnIdx, action] of Object.entries(target.button_mappings)) {
         await mouseApi.setButton(Number(btnIdx), action);
@@ -141,7 +138,12 @@ export function App() {
     }
   };
 
-  const handleSelectActiveStage = (idx: number) => {
+  const handleSelectActiveStage = async (idx: number) => {
+    try {
+      await mouseApi.setActiveDpiStage(idx);
+    } catch (err) {
+      console.error('Failed to set active DPI stage on hardware:', err);
+    }
     setProfiles((prev) => {
       const updated = {
         ...prev,
@@ -208,7 +210,14 @@ export function App() {
   };
 
   const handleUpdateDpiStage = async (stageIdx: number, dpiX: number, dpiY: number, rgb: [number, number, number]) => {
-    await mouseApi.setDpi(stageIdx, dpiX, rgb[0], rgb[1], rgb[2]);
+    try {
+      await mouseApi.setDpi(stageIdx, dpiX, dpiY, rgb[0], rgb[1], rgb[2]);
+      if (stageIdx === profiles[activeProfile]?.active_stage_index) {
+        await mouseApi.setActiveDpiStage(stageIdx);
+      }
+    } catch (err) {
+      console.error('Failed to set DPI stage on hardware:', err);
+    }
     setProfiles((prev) => {
       const updatedDpi = prev[activeProfile].dpi_stages.map((s, idx) =>
         idx === stageIdx ? { ...s, dpi_x: dpiX, dpi_y: dpiY, rgb } : s

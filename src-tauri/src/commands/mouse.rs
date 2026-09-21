@@ -49,11 +49,28 @@ pub fn set_mouse_polling_rate(state: tauri::State<'_, AppState>, hz: u32) -> Res
 }
 
 #[tauri::command]
-pub fn set_mouse_dpi(state: tauri::State<'_, AppState>, stage_idx: u8, dpi_val: u16, r: u8, g: u8, b: u8) -> Result<(), String> {
-    if dpi_val < 50 || dpi_val > 26000 {
+pub fn set_mouse_dpi(
+    state: tauri::State<'_, AppState>,
+    stage_idx: u8,
+    dpi_x: u16,
+    dpi_y: Option<u16>,
+    r: u8,
+    g: u8,
+    b: u8,
+) -> Result<(), String> {
+    let y = dpi_y.unwrap_or(dpi_x);
+    if dpi_x < 50 || dpi_x > 26000 || y < 50 || y > 26000 {
         return Err("Invalid DPI range for PixArt PAW3395 (must be between 50 and 26,000)".into());
     }
-    state.device_service.set_dpi_stage(stage_idx, dpi_val, [r, g, b]).map_err(|e| e.to_string())
+    state.device_service.set_dpi_stage(stage_idx, dpi_x, y, [r, g, b]).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_active_dpi_stage(state: tauri::State<'_, AppState>, stage_idx: u8) -> Result<(), String> {
+    if stage_idx > 7 {
+        return Err("DPI stage index must be between 0 and 7".into());
+    }
+    state.device_service.set_active_dpi_stage(stage_idx).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

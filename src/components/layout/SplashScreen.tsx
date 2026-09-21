@@ -7,7 +7,8 @@ interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ isVisible, statusText }) => {
-  const { t } = useTranslation();
+  const { t: translate } = useTranslation();
+  const t = (key: string) => (translate as any)(key);
 
   return (
     <div

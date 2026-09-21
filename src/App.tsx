@@ -68,7 +68,7 @@ export function App() {
     language: 'en',
   });
 
-  // Scan for connected Compx / Redragon mice
+  // Scan for connected Compx / Redragon mice and hydrate full state
   const scanDevices = useCallback(async () => {
     setIsScanning(true);
     try {
@@ -77,7 +77,10 @@ export function App() {
         const primary = devices[0];
         setDevice(primary);
         await mouseApi.connectDevice(primary.path);
-        await mouseApi.queryBattery();
+        const fullState = await mouseApi.getDeviceFullState();
+        if (fullState.battery) setBattery(fullState.battery);
+        if (fullState.polling_rate) setPollingRate(fullState.polling_rate as PollingRateHz);
+        if (fullState.sensor) setSensorConfig(fullState.sensor);
       } else {
         setDevice(null);
       }
@@ -140,8 +143,10 @@ export function App() {
 
   const handleRefreshBattery = async () => {
     try {
-      await mouseApi.queryBattery();
-      setBattery((prev) => ({ ...prev, percentage: Math.max(10, prev.percentage) }));
+      const bat = await mouseApi.queryBattery();
+      if (bat && bat.percentage > 0) {
+        setBattery(bat);
+      }
     } catch (err) {
       console.error('Failed to query battery:', err);
     }
@@ -152,18 +157,34 @@ export function App() {
     setConfig(newCfg);
   };
 
-  // Initial load
+  // Initial load and hotplug event subscription
   useEffect(() => {
     scanDevices();
     mouseApi.getConfig().then(setConfig).catch(console.error);
 
+    // Subscribe to hotplug USB events
+    let unlistenFn: (() => void) | null = null;
+    mouseApi.onDeviceChanged((event) => {
+      if (event.type === 'Connected') {
+        scanDevices();
+      } else if (event.type === 'Disconnected') {
+        setDevice(null);
+      }
+    }).then((unlisten) => {
+      unlistenFn = unlisten;
+    });
+
     // Periodic telemetry refresh
     const timer = setInterval(() => {
       handleRefreshStats();
+      handleRefreshBattery();
       mouseApi.getPairingStatus().then(setPairingStatus).catch(() => {});
-    }, 2000);
+    }, 3000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      if (unlistenFn) unlistenFn();
+    };
   }, [scanDevices]);
 
   const activeStage = dpiStages[activeStageIndex] || dpiStages[0];

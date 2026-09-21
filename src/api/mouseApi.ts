@@ -1,6 +1,8 @@
 import { trackedInvoke, isTauri } from '@/lib/tauri';
+import { listen } from '@tauri-apps/api/event';
 import type {
   DeviceInfo,
+  BatteryInfo,
   PollingRateHz,
   ButtonAction,
   SensorConfig,
@@ -8,6 +10,8 @@ import type {
   PairingState,
   AppConfig,
   RfTestMode,
+  DeviceEvent,
+  DeviceFullState,
 } from '@/types/mouse';
 
 // Mock state for browser development & preview
@@ -92,9 +96,41 @@ export const mouseApi = {
     return trackedInvoke<void>('set_mouse_button', { buttonIdx, action });
   },
 
-  async queryBattery(): Promise<void> {
-    if (!isTauri()) return;
-    return trackedInvoke<void>('query_mouse_battery');
+  async queryBattery(): Promise<BatteryInfo> {
+    if (!isTauri()) return { percentage: 95, voltage_mv: 4120, is_charging: false };
+    return trackedInvoke<BatteryInfo>('query_mouse_battery');
+  },
+
+  async getBatteryInfo(): Promise<BatteryInfo> {
+    if (!isTauri()) return { percentage: 95, voltage_mv: 4120, is_charging: false };
+    return trackedInvoke<BatteryInfo>('get_battery_info');
+  },
+
+  async getDeviceFullState(): Promise<DeviceFullState> {
+    if (!isTauri()) {
+      return {
+        device: mockDeviceInfo,
+        battery: { percentage: 95, voltage_mv: 4120, is_charging: false },
+        polling_rate: 1000,
+        current_dpi_stage: 2,
+        sensor: {
+          lod_height_mm: 1,
+          motion_sync: true,
+          debounce_ms: 8,
+          ripple_control: false,
+          angle_snapping: false,
+        },
+      };
+    }
+    return trackedInvoke<DeviceFullState>('get_device_full_state');
+  },
+
+  async onDeviceChanged(callback: (event: DeviceEvent) => void): Promise<() => void> {
+    if (!isTauri()) return () => {};
+    const unlisten = await listen<DeviceEvent>('device-changed', (e) => {
+      callback(e.payload);
+    });
+    return unlisten;
   },
 
   async setSensor(config: SensorConfig): Promise<void> {

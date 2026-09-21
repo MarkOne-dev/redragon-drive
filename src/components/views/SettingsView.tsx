@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import type { AppConfig } from '@/types/mouse';
 import { mouseApi } from '@/api/mouseApi';
+import { useTranslation } from 'react-i18next';
 
 interface SettingsViewProps {
   config: AppConfig;
@@ -19,10 +20,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   config,
   onSaveConfig,
 }) => {
+  const { t, i18n } = useTranslation();
   const [localConfig, setLocalConfig] = useState<AppConfig>(config);
   const [newPid, setNewPid] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang);
+    localStorage.setItem('rd_app_language', lang);
+    setLocalConfig({ ...localConfig, language: lang });
+  };
 
   const handleAddPid = async () => {
     const trimmed = newPid.trim().toUpperCase();
@@ -85,10 +93,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div>
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
             <Settings className="size-4 text-red-500" />
-            Application Settings & Hardware PIDs
+            {t('settings.title')}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Manage device identification numbers, auto-connection policies, and persistence.
+            {t('settings.subtitle')}
           </p>
         </div>
         <Button
@@ -97,21 +105,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5 shadow-sm shadow-red-600/30"
         >
           <Save className="size-3.5" />
-          {isSaving ? 'Saving...' : 'Save Settings'}
+          {isSaving ? t('common.saving') : t('settings.saveSettings')}
         </Button>
       </div>
 
       {/* General Settings Card */}
       <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4">
         <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-          General Preferences
+          {t('settings.title')}
         </h3>
 
         <div className="space-y-3">
+          {/* Language Selector */}
           <div className="flex items-center justify-between py-2 border-b border-border/40">
             <div>
-              <div className="text-xs font-medium text-foreground">Auto-Pair on Dongle Insertion</div>
-              <div className="text-[10px] text-muted-foreground">Automatically trigger 2.4G sync when receiver is detected</div>
+              <div className="text-xs font-medium text-foreground">{t('settings.languageTitle')}</div>
+              <div className="text-[10px] text-muted-foreground">{t('settings.languageDesc')}</div>
+            </div>
+            <select
+              value={i18n.language.startsWith('es') ? 'es' : 'en'}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className="bg-background border border-border rounded px-2.5 py-1 text-xs font-medium text-foreground cursor-pointer hover:border-red-500/40"
+            >
+              <option value="es">🇪🇸 Español</option>
+              <option value="en">🇺🇸 English</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-b border-border/40">
+            <div>
+              <div className="text-xs font-medium text-foreground">{t('settings.autoPairTitle')}</div>
+              <div className="text-[10px] text-muted-foreground">{t('settings.autoPairDesc')}</div>
             </div>
             <button
               onClick={() => setLocalConfig({ ...localConfig, auto_pair_on_insert: !localConfig.auto_pair_on_insert })}
@@ -123,8 +147,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="flex items-center justify-between py-2">
             <div>
-              <div className="text-xs font-medium text-foreground">Default Startup Polling Rate</div>
-              <div className="text-[10px] text-muted-foreground">Applied automatically on device initialization</div>
+              <div className="text-xs font-medium text-foreground">{t('dashboard.pollingRate')}</div>
+              <div className="text-[10px] text-muted-foreground">{t('performance.pollingRateSubtitle')}</div>
             </div>
             <select
               value={localConfig.default_polling_rate}
@@ -148,10 +172,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Registered Hardware PIDs (VID: 0x3554)
+              {t('settings.customPidsTitle')} (VID: 0x3554)
             </h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              USB Vendor/Product identifiers recognized by the Compx detector engine.
+              {t('settings.customPidsSubtitle')}
             </p>
           </div>
         </div>
@@ -160,7 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="e.g. 3554F55E"
+            placeholder={t('settings.addPidPlaceholder')}
             value={newPid}
             maxLength={8}
             onChange={(e) => setNewPid(e.target.value)}
@@ -168,7 +192,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           />
           <Button size="sm" onClick={handleAddPid} className="text-xs gap-1 bg-red-600 hover:bg-red-700 text-white">
             <Plus className="size-3.5" />
-            Add PID
+            {t('settings.addPidBtn')}
           </Button>
         </div>
 

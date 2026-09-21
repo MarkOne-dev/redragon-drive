@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { MouseStats } from '@/types/mouse';
 import { mouseApi } from '@/api/mouseApi';
+import { useTranslation } from 'react-i18next';
 
 interface DiagnosticsViewProps {
   stats: MouseStats;
@@ -20,6 +21,7 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
   stats,
   onRefreshStats,
 }) => {
+  const { t } = useTranslation();
   const [localClicks, setLocalClicks] = useState({
     left: 0,
     right: 0,
@@ -104,14 +106,14 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
               <Activity className="size-4 text-red-500" />
-              Hardware Diagnostics & Real-time Benchmark
+              {t('diagnostics.title')}
             </h2>
             <Badge variant="outline" className="text-[10px] font-mono">
-              Driver: {stats.current_polling_rate} Hz
+              {t('diagnostics.driverRate')}: {stats.current_polling_rate} Hz
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Test button actuation switches, scroll encoder ticks, and measure actual USB report rates in real time.
+            {t('diagnostics.subtitle')}
           </p>
         </div>
         <Button
@@ -121,7 +123,7 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
           className="text-xs gap-1.5 hover:text-red-400"
         >
           <RotateCcw className="size-3.5" />
-          Reset Counters
+          {t('diagnostics.resetStats')}
         </Button>
       </div>
 
@@ -131,10 +133,10 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
               <MousePointerClick className="size-4 text-red-500" />
-              Microswitch Actuation Pad
+              {t('diagnostics.clickCounters')}
             </h3>
             <Badge variant="outline" className="text-[10px]">
-              Click inside box
+              {t('buttons.clickToReassign')}
             </Badge>
           </div>
 
@@ -145,37 +147,31 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
             className="h-44 rounded-xl border-2 border-dashed border-border/80 bg-background/50 hover:bg-background/80 transition-colors flex flex-col items-center justify-center cursor-pointer relative overflow-hidden"
           >
             <div className="text-center space-y-1 z-10 pointer-events-none">
-              <MousePointerClick className={`size-8 mx-auto transition-transform ${activeBtn ? 'scale-125 text-red-500' : 'text-muted-foreground'}`} />
-              <div className="text-xs font-bold text-foreground">Click Anywhere in this Box</div>
-              <div className="text-[10px] text-muted-foreground">Tests Left, Right, Middle & Side Buttons</div>
+              <MousePointerClick className="size-7 text-muted-foreground/40 mx-auto" />
+              <div className="text-xs font-semibold text-muted-foreground">Click inside box</div>
             </div>
-
-            {/* Ripple visual indicator */}
-            {activeBtn && (
-              <div className="absolute inset-0 bg-red-500/10 pointer-events-none animate-pulse" />
-            )}
           </div>
 
           {/* Click Counters Grid */}
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-xs">
             <div className={`p-2.5 rounded-lg border text-center transition-all ${activeBtn === 'left' ? 'border-red-500 bg-red-500/20' : 'border-border/50 bg-background/50'}`}>
-              <div className="text-[10px] text-muted-foreground">Left Click</div>
+              <div className="text-[10px] text-muted-foreground">{t('diagnostics.left')}</div>
               <div className="font-mono font-bold text-base text-foreground mt-0.5">{localClicks.left}</div>
             </div>
             <div className={`p-2.5 rounded-lg border text-center transition-all ${activeBtn === 'middle' ? 'border-red-500 bg-red-500/20' : 'border-border/50 bg-background/50'}`}>
-              <div className="text-[10px] text-muted-foreground">Wheel Click</div>
+              <div className="text-[10px] text-muted-foreground">{t('diagnostics.middle')}</div>
               <div className="font-mono font-bold text-base text-foreground mt-0.5">{localClicks.middle}</div>
             </div>
             <div className={`p-2.5 rounded-lg border text-center transition-all ${activeBtn === 'right' ? 'border-red-500 bg-red-500/20' : 'border-border/50 bg-background/50'}`}>
-              <div className="text-[10px] text-muted-foreground">Right Click</div>
+              <div className="text-[10px] text-muted-foreground">{t('diagnostics.right')}</div>
               <div className="font-mono font-bold text-base text-foreground mt-0.5">{localClicks.right}</div>
             </div>
             <div className={`p-2.5 rounded-lg border text-center transition-all ${activeBtn === 'sideBack' ? 'border-red-500 bg-red-500/20' : 'border-border/50 bg-background/50'}`}>
-              <div className="text-[10px] text-muted-foreground">Back (Btn 4)</div>
+              <div className="text-[10px] text-muted-foreground">{t('diagnostics.sideBack')}</div>
               <div className="font-mono font-bold text-base text-foreground mt-0.5">{localClicks.sideBack}</div>
             </div>
             <div className={`p-2.5 rounded-lg border text-center transition-all ${activeBtn === 'sideForward' ? 'border-red-500 bg-red-500/20' : 'border-border/50 bg-background/50'}`}>
-              <div className="text-[10px] text-muted-foreground">Fwd (Btn 5)</div>
+              <div className="text-[10px] text-muted-foreground">{t('diagnostics.sideForward')}</div>
               <div className="font-mono font-bold text-base text-foreground mt-0.5">{localClicks.sideForward}</div>
             </div>
           </div>
@@ -186,10 +182,10 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
               <Gauge className="size-4 text-red-500" />
-              Live Polling Rate Benchmark
+              {t('diagnostics.liveBenchmark')}
             </h3>
             <Badge variant="outline" className="text-[10px] font-mono border-red-500/30 text-red-400">
-              Peak: {peakTestHz} Hz
+              {t('diagnostics.peak')}: {peakTestHz} Hz
             </Badge>
           </div>
 
@@ -201,19 +197,19 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
             <div className="text-3xl font-black font-mono text-foreground tracking-tight">
               {liveTestHz} <span className="text-xs font-sans text-muted-foreground">Hz</span>
             </div>
-            <div className="text-[10px] text-muted-foreground mt-1">Move mouse rapidly inside this box to benchmark</div>
+            <div className="text-[10px] text-muted-foreground mt-1">{t('diagnostics.moveRapidly')}</div>
           </div>
 
           {/* Benchmark Results */}
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="p-3 rounded-lg border border-border/50 bg-background/50">
-              <div className="text-[10px] text-muted-foreground uppercase font-semibold">Real-time Latency</div>
+              <div className="text-[10px] text-muted-foreground uppercase font-semibold">{t('diagnostics.realTimeLatency')}</div>
               <div className="font-mono font-bold text-base text-foreground mt-0.5">
                 {liveTestHz > 0 ? (1000 / liveTestHz).toFixed(2) : '0.00'} ms
               </div>
             </div>
             <div className="p-3 rounded-lg border border-border/50 bg-background/50">
-              <div className="text-[10px] text-muted-foreground uppercase font-semibold">Peak Rate Achieved</div>
+              <div className="text-[10px] text-muted-foreground uppercase font-semibold">{t('diagnostics.peakRate')}</div>
               <div className="font-mono font-bold text-base text-red-400 mt-0.5">
                 {peakTestHz} Hz
               </div>
@@ -221,7 +217,7 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({
           </div>
 
           <div className="text-[11px] text-muted-foreground bg-muted/30 border border-border/40 rounded-lg p-2.5 leading-relaxed">
-            <span className="font-semibold text-foreground">💡 Note on Polling Rate & Screen V-Sync:</span> The mouse hardware communicates with the USB bus at <span className="text-red-400 font-mono">1000 Hz (1ms)</span>. In webviews and browsers, standard UI cursor events are synchronized with your monitor refresh rate (e.g. 60Hz = ~16.6ms intervals). Coalesced high-speed hardware reports are aggregated per display frame.
+            {t('diagnostics.vsyncNote')}
           </div>
         </div>
       </div>

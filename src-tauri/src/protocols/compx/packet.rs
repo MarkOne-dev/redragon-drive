@@ -77,19 +77,51 @@ impl OutputReport8 {
         cmd.to_bytes()
     }
 
-    /// Command to set a DPI stage sensitivity and indicator LED color
-    pub fn set_dpi_stage_command(stage_idx: u8, dpi_val: u16, rgb: [u8; 3]) -> [u8; Self::PACKET_LEN] {
+    /// Universal command to write raw bytes into Compx MCU Flash memory registers
+    pub fn write_flash_command(address: u16, data: &[u8]) -> [u8; Self::PACKET_LEN] {
         let mut payload = [0u8; 14];
-        payload[0] = stage_idx; // Stage index (0..7)
-        // PixArt PAW3395 DPI steps are mapped in increments of 50 DPI
-        let dpi_step = (dpi_val / 50) as u8;
-        payload[1] = dpi_step; // X DPI
-        payload[2] = dpi_step; // Y DPI
-        payload[3] = rgb[0];   // R
-        payload[4] = rgb[1];   // G
-        payload[5] = rgb[2];   // B
-        let cmd = Self::new(crate::protocols::compx::commands::opcodes::CMD_SET_DPI, payload);
+        payload[0] = 0x00; // Sub-id / reserved
+        payload[1] = (address >> 8) as u8; // Address High
+        payload[2] = (address & 0xFF) as u8; // Address Low
+        let len = data.len().min(10);
+        payload[3] = len as u8; // Byte count (max 10 bytes per packet)
+        payload[4..4 + len].copy_from_slice(&data[..len]);
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::WriteFlashData as u8, payload);
         cmd.to_bytes()
+    }
+
+    /// Universal command to read raw bytes from Compx MCU Flash memory registers
+    pub fn read_flash_command(address: u16, len: u8) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[0] = 0x00;
+        payload[1] = (address >> 8) as u8;
+        payload[2] = (address & 0xFF) as u8;
+        payload[3] = len.min(10);
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::ReadFlashData as u8, payload);
+        cmd.to_bytes()
+    }
+
+    /// Sets the active DPI stage index directly in MCU Flash (Address 0x0002 / currentDPI)
+    pub fn set_active_dpi_stage_command(stage_idx: u8) -> [u8; Self::PACKET_LEN] {
+        Self::write_flash_command(0x0002, &[stage_idx])
+    }
+
+    /// Configures the DPI resolution for a stage in Compx Flash (Address 0x000C + stage * 4)
+    /// Encodes xDPI, yDPI, and DPIex for PixArt PAW3395 (50-26,000 DPI)
+    pub fn set_dpi_stage_command(stage_idx: u8, dpi_x: u16, dpi_y: u16) -> [u8; Self::PACKET_LEN] {
+        let x_step = (dpi_x / 50).saturating_sub(1);
+        let y_step = (dpi_y / 50).saturating_sub(1);
+        let x_hi = (x_step >> 8) as u8;
+        let y_hi = (y_step >> 8) as u8;
+        let dpiex = (x_hi << 2) | (y_hi << 6);
+        let data = [x_step as u8, y_step as u8, dpiex, 0x00];
+        Self::write_flash_command(0x000C + (stage_idx as u16) * 4, &data)
+    }
+
+    /// Configures the RGB LED indicator color for a DPI stage (Address 0x002C + stage * 4)
+    pub fn set_dpi_color_command(stage_idx: u8, rgb: [u8; 3]) -> [u8; Self::PACKET_LEN] {
+        let data = [rgb[0], rgb[1], rgb[2], 0x00];
+        Self::write_flash_command(0x002C + (stage_idx as u16) * 4, &data)
     }
 
     /// Command to reassign a physical mouse button (index 0 to 15)
@@ -295,11 +327,42 @@ mod tests {
     }
 
     #[test]
-    fn test_set_dpi_stage_command_valid() {
-        let bytes = OutputReport8::set_dpi_stage_command(1, 1600, [255, 0, 0]);
+    fn test_set_active_dpi_stage_command_valid() {
+        let bytes = OutputReport8::set_active_dpi_stage_command(2); // Stage 3 (index 2)
         assert_eq!(bytes[0], 8);
-        assert_eq!(bytes[2], 1);  // stage 1
-        assert_eq!(bytes[3], 32); // 1600 / 50 = 32 steps
+        assert_eq!(bytes[1], 7); // WriteFlashData
+        assert_eq!(bytes[3], 0); // Addr High
+        assert_eq!(bytes[4], 2); // Addr Low: 0x0002 (currentDPI)
+        assert_eq!(bytes[5], 1); // Length: 1 byte
+        assert_eq!(bytes[6], 2); // Stage index: 2
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_dpi_stage_command_valid() {
+        let bytes = OutputReport8::set_dpi_stage_command(1, 1600, 1600); // Stage index 1
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 7);  // WriteFlashData
+        assert_eq!(bytes[3], 0);  // Addr High
+        assert_eq!(bytes[4], 16); // Addr Low: 0x000C + 1*4 = 0x0010 = 16
+        assert_eq!(bytes[5], 4);  // Length: 4 bytes
+        assert_eq!(bytes[6], 31); // (1600 / 50) - 1 = 31
+        assert_eq!(bytes[7], 31); // yDPI = 31
+        assert_eq!(bytes[8], 0);  // DPIex = 0
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_dpi_color_command_valid() {
+        let bytes = OutputReport8::set_dpi_color_command(0, [255, 128, 0]);
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 7);  // WriteFlashData
+        assert_eq!(bytes[3], 0);  // Addr High
+        assert_eq!(bytes[4], 44); // Addr Low: 0x002C + 0*4 = 0x002C = 44
+        assert_eq!(bytes[5], 4);  // Length: 4 bytes
+        assert_eq!(bytes[6], 255);
+        assert_eq!(bytes[7], 128);
+        assert_eq!(bytes[8], 0);
         assert!(is_packet_valid(&bytes));
     }
 }

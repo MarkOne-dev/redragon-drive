@@ -86,9 +86,14 @@ export const mouseApi = {
     return trackedInvoke<void>('set_mouse_polling_rate', { hz });
   },
 
-  async setDpi(stageIdx: number, dpiVal: number, r: number, g: number, b: number): Promise<void> {
+  async setDpi(stageIdx: number, dpiX: number, dpiY: number, r: number, g: number, b: number): Promise<void> {
     if (!isTauri()) return;
-    return trackedInvoke<void>('set_mouse_dpi', { stageIdx, dpiVal, r, g, b });
+    return trackedInvoke<void>('set_mouse_dpi', { stageIdx, dpiX, dpiY, r, g, b });
+  },
+
+  async setActiveDpiStage(stageIdx: number): Promise<void> {
+    if (!isTauri()) return;
+    return trackedInvoke<void>('set_active_dpi_stage', { stageIdx });
   },
 
   async setButton(buttonIdx: number, action: ButtonAction): Promise<void> {

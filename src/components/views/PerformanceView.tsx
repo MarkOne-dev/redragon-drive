@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Gauge, 
   Crosshair, 
@@ -7,7 +7,8 @@ import {
   SlidersHorizontal,
   Info,
   Link,
-  Unlink
+  Unlink,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,41 +39,38 @@ const PRESET_COLORS: [number, number, number][] = [
   [0, 240, 255],   // Cyan
   [50, 255, 126],  // Neon Green
   [255, 211, 42],  // Gold Yellow
-  [156, 39, 176],  // Purple
-  [255, 121, 63],  // Orange
-  [255, 255, 255], // Pure White
+  [165, 94, 234],  // Purple
+  [255, 255, 255], // White
 ];
 
+// Perceptual DPI scale definition
 const DPI_SCALE_KEYPOINTS = [50, 800, 1600, 3200, 6400, 12800, 26000];
-const SLIDER_MAX = (DPI_SCALE_KEYPOINTS.length - 1) * 100; // 600
+const SLIDER_MAX = (DPI_SCALE_KEYPOINTS.length - 1) * 100;
 
 function dpiToSliderValue(dpi: number): number {
   if (dpi <= DPI_SCALE_KEYPOINTS[0]) return 0;
   if (dpi >= DPI_SCALE_KEYPOINTS[DPI_SCALE_KEYPOINTS.length - 1]) return SLIDER_MAX;
-
   for (let i = 0; i < DPI_SCALE_KEYPOINTS.length - 1; i++) {
-    const low = DPI_SCALE_KEYPOINTS[i];
-    const high = DPI_SCALE_KEYPOINTS[i + 1];
-    if (dpi >= low && dpi <= high) {
-      const frac = (dpi - low) / (high - low);
-      return Math.round((i + frac) * 100);
+    const d0 = DPI_SCALE_KEYPOINTS[i];
+    const d1 = DPI_SCALE_KEYPOINTS[i + 1];
+    if (dpi >= d0 && dpi <= d1) {
+      const fraction = (dpi - d0) / (d1 - d0);
+      return i * 100 + fraction * 100;
     }
   }
   return 0;
 }
 
 function sliderValueToDpi(val: number): number {
-  const clamped = Math.max(0, Math.min(SLIDER_MAX, val));
-  const segmentIndex = Math.min(
-    Math.floor(clamped / 100),
-    DPI_SCALE_KEYPOINTS.length - 2
-  );
-  const frac = (clamped - segmentIndex * 100) / 100;
-  const low = DPI_SCALE_KEYPOINTS[segmentIndex];
-  const high = DPI_SCALE_KEYPOINTS[segmentIndex + 1];
-  const rawDpi = low + frac * (high - low);
-  const steppedDpi = Math.round(rawDpi / 50) * 50;
-  return Math.max(50, Math.min(26000, steppedDpi));
+  if (val <= 0) return DPI_SCALE_KEYPOINTS[0];
+  if (val >= SLIDER_MAX) return DPI_SCALE_KEYPOINTS[DPI_SCALE_KEYPOINTS.length - 1];
+  const segIndex = Math.min(Math.floor(val / 100), DPI_SCALE_KEYPOINTS.length - 2);
+  const fraction = (val - segIndex * 100) / 100;
+  const d0 = DPI_SCALE_KEYPOINTS[segIndex];
+  const d1 = DPI_SCALE_KEYPOINTS[segIndex + 1];
+  const rawDpi = d0 + fraction * (d1 - d0);
+  const rounded = Math.round(rawDpi / 50) * 50;
+  return Math.max(50, Math.min(26000, rounded));
 }
 
 export const PerformanceView: React.FC<PerformanceViewProps> = ({
@@ -85,8 +83,9 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isApplyingRate, setIsApplyingRate] = useState(false);
-  const [isApplyingDpi, setIsApplyingDpi] = useState(false);
+  const [syncState, setSyncState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeStage = dpiStages[activeStageIndex] || dpiStages[0];
   const [isDecoupledXY, setIsDecoupledXY] = useState<boolean>(
@@ -98,6 +97,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 
   // Sync with active stage when switching
   const handleStageSelect = (index: number) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     onSelectActiveStage(index);
     const stage = dpiStages[index];
     if (stage) {
@@ -106,6 +106,23 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
       setIsDecoupledXY(stage.dpi_x !== stage.dpi_y);
       setLocalRgb(stage.rgb);
     }
+  };
+
+  const queueDpiUpdate = (newX: number, newY: number, rgb: [number, number, number]) => {
+    setSyncState('saving');
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        await onUpdateDpiStage(activeStageIndex, newX, newY, rgb);
+        setSyncState('saved');
+        setTimeout(() => setSyncState('idle'), 2500);
+      } catch (err: any) {
+        setSyncState('idle');
+        setStatusMessage(`Error: ${err?.message || err}`);
+      }
+    }, 150);
   };
 
   const handleApplyPollingRate = async (hz: PollingRateHz) => {
@@ -121,40 +138,66 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
     }
   };
 
-  const handleApplyDpi = async () => {
-    setIsApplyingDpi(true);
-    try {
-      await onUpdateDpiStage(activeStageIndex, localDpiX, localDpiY, localRgb);
-      setStatusMessage(`${t('performance.stage')} ${activeStageIndex + 1} (${localDpiX} DPI) - ${t('common.saved')}`);
-      setTimeout(() => setStatusMessage(null), 3000);
-    } catch (err: any) {
-      setStatusMessage(`Error: ${err?.message || err}`);
-    } finally {
-      setIsApplyingDpi(false);
-    }
-  };
-
   const handleToggleDecouple = () => {
     const nextDecoupled = !isDecoupledXY;
     setIsDecoupledXY(nextDecoupled);
     if (!nextDecoupled) {
       setLocalDpiY(localDpiX);
+      queueDpiUpdate(localDpiX, localDpiX, localRgb);
     }
   };
 
   const handleDpiXChange = (val: number) => {
     setLocalDpiX(val);
+    const nextY = isDecoupledXY ? localDpiY : val;
     if (!isDecoupledXY) {
       setLocalDpiY(val);
     }
+    queueDpiUpdate(val, nextY, localRgb);
   };
 
-  const handleSetDpiPreset = (preset: number) => {
+  const handleDpiYChange = (val: number) => {
+    setLocalDpiY(val);
+    queueDpiUpdate(localDpiX, val, localRgb);
+  };
+
+  const handleSetDpiPreset = async (preset: number) => {
     setLocalDpiX(preset);
+    const nextY = isDecoupledXY ? localDpiY : preset;
     if (!isDecoupledXY) {
       setLocalDpiY(preset);
     }
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setSyncState('saving');
+    try {
+      await onUpdateDpiStage(activeStageIndex, preset, nextY, localRgb);
+      setSyncState('saved');
+      setTimeout(() => setSyncState('idle'), 2500);
+    } catch (err: any) {
+      setSyncState('idle');
+      setStatusMessage(`Error: ${err?.message || err}`);
+    }
   };
+
+  const handleColorChange = async (color: [number, number, number]) => {
+    setLocalRgb(color);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setSyncState('saving');
+    try {
+      await onUpdateDpiStage(activeStageIndex, localDpiX, localDpiY, color);
+      setSyncState('saved');
+      setTimeout(() => setSyncState('idle'), 2500);
+    } catch (err: any) {
+      setSyncState('idle');
+      setStatusMessage(`Error: ${err?.message || err}`);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto select-none">
@@ -239,14 +282,24 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
               {isDecoupledXY ? t('performance.sync') : t('performance.decouple')}
             </Button>
 
-            <Button
-              onClick={handleApplyDpi}
-              disabled={isApplyingDpi}
-              className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5 shadow-sm shadow-red-600/30"
-            >
-              <Check className="size-3.5" />
-              {isApplyingDpi ? t('common.saving') : t('common.save')}
-            </Button>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background/60 border border-border/60 text-xs font-mono">
+              {syncState === 'saving' ? (
+                <span className="flex items-center gap-1.5 text-amber-400">
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  {t('common.saving')}
+                </span>
+              ) : syncState === 'saved' ? (
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <Check className="size-3.5" />
+                  {t('common.saved')}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Check className="size-3.5 text-emerald-500/70" />
+                  Auto-Sync
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -340,7 +393,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                       max={26000}
                       step={50}
                       value={localDpiY}
-                      onChange={(e) => setLocalDpiY(Number(e.target.value))}
+                      onChange={(e) => handleDpiYChange(Number(e.target.value))}
                       className="w-24 px-2 py-1 bg-background border border-border rounded text-center font-mono font-bold text-sm text-foreground focus:outline-none focus:border-blue-500"
                     />
                     <span className="text-xs font-mono text-muted-foreground">DPI</span>
@@ -353,7 +406,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                   max={SLIDER_MAX}
                   step={1}
                   value={dpiToSliderValue(localDpiY)}
-                  onChange={(e) => setLocalDpiY(sliderValueToDpi(Number(e.target.value)))}
+                  onChange={(e) => handleDpiYChange(sliderValueToDpi(Number(e.target.value)))}
                   className="w-full accent-blue-500 cursor-pointer h-2 bg-muted rounded-lg appearance-none"
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-0.5">
@@ -361,7 +414,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                     <button
                       key={pt}
                       type="button"
-                      onClick={() => setLocalDpiY(pt)}
+                      onClick={() => handleDpiYChange(pt)}
                       className="hover:text-foreground transition-colors cursor-pointer"
                     >
                       {pt === 26000 ? `${pt.toLocaleString()} DPI` : pt.toLocaleString()}
@@ -413,7 +466,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                 {PRESET_COLORS.map((color, i) => (
                   <button
                     key={i}
-                    onClick={() => setLocalRgb(color)}
+                    onClick={() => handleColorChange(color)}
                     className={`size-6 rounded-full border transition-transform hover:scale-110 ${
                       localRgb[0] === color[0] && localRgb[1] === color[1] && localRgb[2] === color[2]
                         ? 'ring-2 ring-white ring-offset-2 ring-offset-background scale-110'

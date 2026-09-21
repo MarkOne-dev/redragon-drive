@@ -59,6 +59,7 @@ pub fn run() {
             commands::mouse::run_rf_test,
             commands::mouse::set_mouse_polling_rate,
             commands::mouse::set_mouse_dpi,
+            commands::mouse::set_active_dpi_stage,
             commands::mouse::set_mouse_button,
             commands::mouse::query_mouse_battery,
             commands::mouse::set_mouse_sensor,

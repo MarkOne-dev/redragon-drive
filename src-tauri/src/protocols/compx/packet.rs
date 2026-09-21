@@ -55,11 +55,25 @@ impl OutputReport8 {
         cmd.to_bytes()
     }
 
+    /// Command to set the active hardware profile on the mouse (0..3)
+    pub fn set_profile_command(profile_idx: u8) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[0] = profile_idx; // 0=Config1, 1=Config2, 2=Config3, 3=Config4
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::SetCurrentConfig as u8, payload);
+        cmd.to_bytes()
+    }
+
+    /// Command to query the active hardware profile from the mouse
+    pub fn get_profile_command() -> [u8; Self::PACKET_LEN] {
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::GetCurrentConfig as u8, [0u8; 14]);
+        cmd.to_bytes()
+    }
+
     /// Command to set the polling rate (Hz)
     pub fn set_polling_rate_command(rate: crate::core::models::PollingRate) -> [u8; Self::PACKET_LEN] {
         let mut payload = [0u8; 14];
         payload[0] = rate.mask(); // 1=1000Hz, 2=500Hz, 4=250Hz, 8=125Hz, 16=2000Hz, 32=4000Hz
-        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::SetCurrentConfig as u8, payload);
+        let cmd = Self::new(crate::protocols::compx::commands::opcodes::CMD_SET_POLLING_RATE, payload);
         cmd.to_bytes()
     }
 
@@ -258,8 +272,25 @@ mod tests {
     fn test_set_polling_rate_command_valid() {
         let bytes = OutputReport8::set_polling_rate_command(crate::core::models::PollingRate::Hz1000);
         assert_eq!(bytes[0], 8);
-        assert_eq!(bytes[1], 15); // SetCurrentConfig
-        assert_eq!(bytes[2], 1);  // 1000Hz mask
+        assert_eq!(bytes[1], 0x21); // CMD_SET_POLLING_RATE
+        assert_eq!(bytes[2], 1);    // 1000Hz mask
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_profile_command_valid() {
+        let bytes = OutputReport8::set_profile_command(1); // Profile 2 (index 1)
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 15); // SetCurrentConfig (opcode 15)
+        assert_eq!(bytes[2], 1);  // Profile index 1
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_get_profile_command_valid() {
+        let bytes = OutputReport8::get_profile_command();
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 14); // GetCurrentConfig (opcode 14)
         assert!(is_packet_valid(&bytes));
     }
 

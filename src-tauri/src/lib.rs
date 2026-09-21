@@ -62,6 +62,8 @@ pub fn run() {
             commands::mouse::set_mouse_button,
             commands::mouse::query_mouse_battery,
             commands::mouse::set_mouse_sensor,
+            commands::mouse::set_active_profile,
+            commands::mouse::get_active_profile,
             commands::pairing::start_pairing,
             commands::pairing::cancel_pairing,
             commands::pairing::get_pairing_status,

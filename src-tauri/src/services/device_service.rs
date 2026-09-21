@@ -220,4 +220,41 @@ impl DeviceService {
             ))
         }
     }
+
+    /// Sets the active on-board hardware profile (0 = Config 1, 1 = Config 2, 2 = Config 3, etc.)
+    pub fn set_active_profile(&self, profile_idx: u8) -> Result<()> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let cmd = OutputReport8::set_profile_command(profile_idx);
+            transport.write_output_report(&cmd)?;
+            Ok(())
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to set active profile".into(),
+            ))
+        }
+    }
+
+    /// Queries the currently active on-board hardware profile index from the mouse
+    pub fn get_active_profile(&self) -> Result<u8> {
+        let active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let cmd = OutputReport8::get_profile_command();
+            let _ = transport.write_output_report(&cmd);
+
+            let mut in_buf = [0u8; 17];
+            if let Ok(len) = dev.read_timeout(&mut in_buf, 100) {
+                if len >= 3 {
+                    return Ok(in_buf[2]);
+                }
+            }
+            Ok(0)
+        } else {
+            Err(RedragonError::UnexpectedResponse(
+                "No device connected to get active profile".into(),
+            ))
+        }
+    }
 }

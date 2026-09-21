@@ -138,6 +138,16 @@ export const mouseApi = {
     return trackedInvoke<void>('set_mouse_sensor', { config });
   },
 
+  async setActiveProfile(profileIdx: number): Promise<void> {
+    if (!isTauri()) return;
+    return trackedInvoke<void>('set_active_profile', { profileIdx });
+  },
+
+  async getActiveProfile(): Promise<number> {
+    if (!isTauri()) return 0;
+    return trackedInvoke<number>('get_active_profile');
+  },
+
   async startPairing(cid: number, pid: number): Promise<void> {
     if (!isTauri()) return;
     return trackedInvoke<void>('start_pairing', { cid, pid });

@@ -14,20 +14,12 @@ import type {
   BatteryInfo, 
   MouseStats, 
   PollingRateHz, 
-  DpiStageConfig, 
   ButtonAction, 
   SensorConfig, 
   PairingState, 
-  AppConfig 
+  AppConfig,
+  MouseProfile 
 } from '@/types/mouse';
-
-const DEFAULT_DPI_STAGES: DpiStageConfig[] = [
-  { stage: 0, dpi_x: 400, dpi_y: 400, rgb: [255, 42, 77], enabled: true },
-  { stage: 1, dpi_x: 800, dpi_y: 800, rgb: [0, 240, 255], enabled: true },
-  { stage: 2, dpi_x: 1600, dpi_y: 1600, rgb: [50, 255, 126], enabled: true },
-  { stage: 3, dpi_x: 3200, dpi_y: 3200, rgb: [255, 211, 42], enabled: true },
-  { stage: 4, dpi_x: 6400, dpi_y: 6400, rgb: [156, 39, 176], enabled: true },
-];
 
 const DEFAULT_SENSOR_CONFIG: SensorConfig = {
   lod_height_mm: 1,
@@ -35,6 +27,47 @@ const DEFAULT_SENSOR_CONFIG: SensorConfig = {
   debounce_ms: 8,
   ripple_control: false,
   angle_snapping: false,
+};
+
+const createDefaultProfile = (id: number): MouseProfile => ({
+  id,
+  name: `Profile ${id}`,
+  dpi_stages: [
+    { stage: 0, dpi_x: 400, dpi_y: 400, rgb: [255, 42, 77], enabled: true },
+    { stage: 1, dpi_x: 800, dpi_y: 800, rgb: [0, 240, 255], enabled: true },
+    { stage: 2, dpi_x: 1600, dpi_y: 1600, rgb: [50, 255, 126], enabled: true },
+    { stage: 3, dpi_x: 3200, dpi_y: 3200, rgb: [255, 211, 42], enabled: true },
+    { stage: 4, dpi_x: 6400, dpi_y: 6400, rgb: [156, 39, 176], enabled: true },
+  ],
+  active_stage_index: 2,
+  polling_rate: 1000,
+  button_mappings: {},
+  sensor_config: DEFAULT_SENSOR_CONFIG,
+});
+
+const loadInitialProfiles = (): Record<number, MouseProfile> => {
+  const result: Record<number, MouseProfile> = {
+    1: createDefaultProfile(1),
+    2: createDefaultProfile(2),
+    3: createDefaultProfile(3),
+  };
+
+  for (let p = 1; p <= 3; p++) {
+    const raw = localStorage.getItem(`rd_profile_${p}_data`);
+    if (raw) {
+      try {
+        result[p] = { ...result[p], ...JSON.parse(raw) };
+      } catch {}
+    } else {
+      const legacyDpi = localStorage.getItem(`rd_profile_${p}_dpi`);
+      if (legacyDpi) {
+        try {
+          result[p].dpi_stages = JSON.parse(legacyDpi);
+        } catch {}
+      }
+    }
+  }
+  return result;
 };
 
 export function App() {
@@ -54,22 +87,12 @@ export function App() {
     max_polling_rate: 1000,
   });
 
+  const [profiles, setProfiles] = useState<Record<number, MouseProfile>>(loadInitialProfiles);
   const [activeProfile, setActiveProfile] = useState<number>(() => {
     const saved = localStorage.getItem('rd_active_profile');
-    return saved ? Number(saved) : 1;
+    return saved ? Math.min(3, Math.max(1, Number(saved))) : 1;
   });
 
-  const [pollingRate, setPollingRate] = useState<PollingRateHz>(1000);
-  const [dpiStages, setDpiStages] = useState<DpiStageConfig[]>(() => {
-    const saved = localStorage.getItem('rd_profile_1_dpi');
-    if (saved) {
-      try { return JSON.parse(saved); } catch {}
-    }
-    return DEFAULT_DPI_STAGES;
-  });
-  const [activeStageIndex, setActiveStageIndex] = useState<number>(2); // Default to 1600 DPI
-  const [sensorConfig, setSensorConfig] = useState<SensorConfig>(DEFAULT_SENSOR_CONFIG);
-  const [buttonMappings, setButtonMappings] = useState<Record<number, ButtonAction>>({});
   const [pairingStatus, setPairingStatus] = useState<PairingState>({ state: 'Idle' });
   const [config, setConfig] = useState<AppConfig>({
     auto_pair_on_insert: true,
@@ -79,15 +102,57 @@ export function App() {
     language: 'en',
   });
 
-  const handleSelectProfile = (p: number) => {
+  const currentProfile = profiles[activeProfile] || profiles[1];
+  const dpiStages = currentProfile.dpi_stages;
+  const activeStageIndex = currentProfile.active_stage_index;
+  const pollingRate = currentProfile.polling_rate;
+  const buttonMappings = currentProfile.button_mappings;
+  const sensorConfig = currentProfile.sensor_config;
+
+  const handleSelectProfile = async (p: number) => {
     setActiveProfile(p);
     localStorage.setItem('rd_active_profile', String(p));
-    const savedDpi = localStorage.getItem(`rd_profile_${p}_dpi`);
-    if (savedDpi) {
-      try {
-        setDpiStages(JSON.parse(savedDpi));
-      } catch {}
+
+    // 1. Tell mouse hardware to switch on-board profile (0-indexed: 0=P1, 1=P2, 2=P3)
+    try {
+      await mouseApi.setActiveProfile(p - 1);
+    } catch (err) {
+      console.warn('Failed to switch hardware profile:', err);
     }
+
+    // 2. Synchronize active profile parameters to the hardware
+    const target = profiles[p] || profiles[1];
+    try {
+      await mouseApi.setPollingRate(target.polling_rate);
+      const activeStage = target.dpi_stages[target.active_stage_index] || target.dpi_stages[0];
+      await mouseApi.setDpi(
+        target.active_stage_index,
+        activeStage.dpi_x,
+        activeStage.rgb[0],
+        activeStage.rgb[1],
+        activeStage.rgb[2]
+      );
+      await mouseApi.setSensor(target.sensor_config);
+      for (const [btnIdx, action] of Object.entries(target.button_mappings)) {
+        await mouseApi.setButton(Number(btnIdx), action);
+      }
+    } catch (syncErr) {
+      console.warn('Failed to synchronize profile settings to mouse hardware:', syncErr);
+    }
+  };
+
+  const handleSelectActiveStage = (idx: number) => {
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          active_stage_index: idx,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   // Scan for connected Compx / Redragon mice and hydrate full state
@@ -102,8 +167,13 @@ export function App() {
           await mouseApi.connectDevice(primary.path);
           const fullState = await mouseApi.getDeviceFullState();
           if (fullState.battery) setBattery(fullState.battery);
-          if (fullState.polling_rate) setPollingRate(fullState.polling_rate as PollingRateHz);
-          if (fullState.sensor) setSensorConfig(fullState.sensor);
+          if (fullState.active_profile !== undefined && fullState.active_profile !== null) {
+            const hwProfile = fullState.active_profile + 1;
+            if (hwProfile >= 1 && hwProfile <= 3) {
+              setActiveProfile(hwProfile);
+              localStorage.setItem('rd_active_profile', String(hwProfile));
+            }
+          }
         } catch (connErr) {
           console.warn('Device detected but could not establish HID control session:', connErr);
         }
@@ -124,26 +194,68 @@ export function App() {
 
   const handleSetPollingRate = async (hz: PollingRateHz) => {
     await mouseApi.setPollingRate(hz);
-    setPollingRate(hz);
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          polling_rate: hz,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   const handleUpdateDpiStage = async (stageIdx: number, dpiX: number, dpiY: number, rgb: [number, number, number]) => {
     await mouseApi.setDpi(stageIdx, dpiX, rgb[0], rgb[1], rgb[2]);
-    setDpiStages((prev) => {
-      const updated = prev.map((s, idx) => (idx === stageIdx ? { ...s, dpi_x: dpiX, dpi_y: dpiY, rgb } : s));
-      localStorage.setItem(`rd_profile_${activeProfile}_dpi`, JSON.stringify(updated));
+    setProfiles((prev) => {
+      const updatedDpi = prev[activeProfile].dpi_stages.map((s, idx) =>
+        idx === stageIdx ? { ...s, dpi_x: dpiX, dpi_y: dpiY, rgb } : s
+      );
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          dpi_stages: updatedDpi,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
       return updated;
     });
   };
 
   const handleSaveButton = async (buttonIdx: number, action: ButtonAction) => {
     await mouseApi.setButton(buttonIdx, action);
-    setButtonMappings((prev) => ({ ...prev, [buttonIdx]: action }));
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          button_mappings: {
+            ...prev[activeProfile].button_mappings,
+            [buttonIdx]: action,
+          },
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   const handleSaveSensor = async (newConfig: SensorConfig) => {
     await mouseApi.setSensor(newConfig);
-    setSensorConfig(newConfig);
+    setProfiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeProfile]: {
+          ...prev[activeProfile],
+          sensor_config: newConfig,
+        },
+      };
+      localStorage.setItem(`rd_profile_${activeProfile}_data`, JSON.stringify(updated[activeProfile]));
+      return updated;
+    });
   };
 
   const handleStartPairing = async () => {
@@ -261,7 +373,7 @@ export function App() {
               onSetPollingRate={handleSetPollingRate}
               dpiStages={dpiStages}
               activeStageIndex={activeStageIndex}
-              onSelectActiveStage={setActiveStageIndex}
+              onSelectActiveStage={handleSelectActiveStage}
               onUpdateDpiStage={handleUpdateDpiStage}
             />
           )}

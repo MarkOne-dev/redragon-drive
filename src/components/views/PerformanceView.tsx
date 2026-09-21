@@ -43,6 +43,38 @@ const PRESET_COLORS: [number, number, number][] = [
   [255, 255, 255], // Pure White
 ];
 
+const DPI_SCALE_KEYPOINTS = [50, 800, 1600, 3200, 6400, 12800, 26000];
+const SLIDER_MAX = (DPI_SCALE_KEYPOINTS.length - 1) * 100; // 600
+
+function dpiToSliderValue(dpi: number): number {
+  if (dpi <= DPI_SCALE_KEYPOINTS[0]) return 0;
+  if (dpi >= DPI_SCALE_KEYPOINTS[DPI_SCALE_KEYPOINTS.length - 1]) return SLIDER_MAX;
+
+  for (let i = 0; i < DPI_SCALE_KEYPOINTS.length - 1; i++) {
+    const low = DPI_SCALE_KEYPOINTS[i];
+    const high = DPI_SCALE_KEYPOINTS[i + 1];
+    if (dpi >= low && dpi <= high) {
+      const frac = (dpi - low) / (high - low);
+      return Math.round((i + frac) * 100);
+    }
+  }
+  return 0;
+}
+
+function sliderValueToDpi(val: number): number {
+  const clamped = Math.max(0, Math.min(SLIDER_MAX, val));
+  const segmentIndex = Math.min(
+    Math.floor(clamped / 100),
+    DPI_SCALE_KEYPOINTS.length - 2
+  );
+  const frac = (clamped - segmentIndex * 100) / 100;
+  const low = DPI_SCALE_KEYPOINTS[segmentIndex];
+  const high = DPI_SCALE_KEYPOINTS[segmentIndex + 1];
+  const rawDpi = low + frac * (high - low);
+  const steppedDpi = Math.round(rawDpi / 50) * 50;
+  return Math.max(50, Math.min(26000, steppedDpi));
+}
+
 export const PerformanceView: React.FC<PerformanceViewProps> = ({
   currentPollingRate,
   onSetPollingRate,
@@ -254,7 +286,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <SlidersHorizontal className="size-3.5 text-red-400" />
-                  {isDecoupledXY ? 'Axis X Sensitivity (Horizontal)' : `Stage ${activeStageIndex + 1} Sensitivity`}
+                  {isDecoupledXY ? `${t('performance.axisX')} (${t('performance.sensitivity')})` : `${t('performance.stage')} ${activeStageIndex + 1} - ${t('performance.sensitivity')}`}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -272,21 +304,24 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 
               <input
                 type="range"
-                min={50}
-                max={26000}
-                step={50}
-                value={localDpiX}
-                onChange={(e) => handleDpiXChange(Number(e.target.value))}
+                min={0}
+                max={SLIDER_MAX}
+                step={1}
+                value={dpiToSliderValue(localDpiX)}
+                onChange={(e) => handleDpiXChange(sliderValueToDpi(Number(e.target.value)))}
                 className="w-full accent-red-600 cursor-pointer h-2 bg-muted rounded-lg appearance-none"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                <span>50</span>
-                <span>800</span>
-                <span>1,600</span>
-                <span>3,200</span>
-                <span>6,400</span>
-                <span>12,800</span>
-                <span>26,000 DPI</span>
+              <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                {DPI_SCALE_KEYPOINTS.map((pt) => (
+                  <button
+                    key={pt}
+                    type="button"
+                    onClick={() => handleDpiXChange(pt)}
+                    className="hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    {pt === 26000 ? `${pt.toLocaleString()} DPI` : pt.toLocaleString()}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -296,7 +331,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <SlidersHorizontal className="size-3.5 text-blue-400" />
-                    Axis Y Sensitivity (Vertical)
+                    {`${t('performance.axisY')} (${t('performance.sensitivity')})`}
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -314,28 +349,31 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
 
                 <input
                   type="range"
-                  min={50}
-                  max={26000}
-                  step={50}
-                  value={localDpiY}
-                  onChange={(e) => setLocalDpiY(Number(e.target.value))}
+                  min={0}
+                  max={SLIDER_MAX}
+                  step={1}
+                  value={dpiToSliderValue(localDpiY)}
+                  onChange={(e) => setLocalDpiY(sliderValueToDpi(Number(e.target.value)))}
                   className="w-full accent-blue-500 cursor-pointer h-2 bg-muted rounded-lg appearance-none"
                 />
-                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>50</span>
-                  <span>800</span>
-                  <span>1,600</span>
-                  <span>3,200</span>
-                  <span>6,400</span>
-                  <span>12,800</span>
-                  <span>26,000 DPI</span>
+                <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                  {DPI_SCALE_KEYPOINTS.map((pt) => (
+                    <button
+                      key={pt}
+                      type="button"
+                      onClick={() => setLocalDpiY(pt)}
+                      className="hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {pt === 26000 ? `${pt.toLocaleString()} DPI` : pt.toLocaleString()}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
 
             {/* Quick DPI Presets */}
             <div className="pt-2">
-              <span className="text-[11px] text-muted-foreground mb-1.5 block">Quick Sensitivity Presets:</span>
+              <span className="text-[11px] text-muted-foreground mb-1.5 block">{t('performance.quickPresets')}:</span>
               <div className="flex flex-wrap gap-1.5">
                 {[400, 800, 1200, 1600, 2400, 3200, 6400, 12000, 26000].map((preset) => (
                   <Button
@@ -356,7 +394,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({
           <div className="rounded-xl border border-border/50 bg-background/50 p-4 space-y-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <Palette className="size-3.5 text-red-400" />
-              Stage Indicator LED Color
+              {t('performance.ledColor')}
             </label>
 
             <div className="flex items-center gap-3">

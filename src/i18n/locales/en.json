@@ -74,7 +74,10 @@
     "pollingRateTitle": "USB / Wireless Polling Rate",
     "pollingRateSubtitle": "Determines how many times per second the mouse sends coordinate packets to your system",
     "currentRate": "Current",
-    "optimalRateNote": "is the optimal native competitive rate for the Redragon M916-PRO with low CPU overhead."
+    "optimalRateNote": "is the optimal competitive rate for Redragon M916-PRO with balanced CPU usage.",
+    "sensitivity": "Sensitivity",
+    "quickPresets": "Quick Sensitivity Presets",
+    "ledColor": "Stage Indicator LED Color"
   },
   "buttons": {
     "title": "Redragon M916-PRO Button Remapping Suite",

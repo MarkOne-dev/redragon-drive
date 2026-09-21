@@ -172,14 +172,22 @@ impl DeviceService {
             let cmd = OutputReport8::query_battery_command();
             transport.write_output_report(&cmd)?;
 
-            // Non-blocking quick check for response (50ms timeout)
+            // Non-blocking quick check for response (100ms timeout)
             let mut buf = [0u8; 17];
-            if let Ok(bytes_read) = dev.read_timeout(&mut buf, 50) {
-                if bytes_read >= 3 {
-                    let level = buf[1].min(100);
-                    if level > 0 {
-                        let mut b = self.active_battery.lock().unwrap();
-                        b.percentage = level;
+            if let Ok(bytes_read) = dev.read_timeout(&mut buf, 100) {
+                if bytes_read >= 10
+                    && buf[0] == 8
+                    && buf[1] == crate::protocols::compx::commands::UsbCommandId::BatteryLevel as u8
+                {
+                    let level = buf[6].min(100);
+                    let is_charging = buf[5] > 0;
+                    let voltage_mv = ((buf[8] as u16) << 8) | (buf[9] as u16);
+
+                    let mut b = self.active_battery.lock().unwrap();
+                    b.percentage = level;
+                    b.is_charging = is_charging;
+                    if voltage_mv >= 3000 && voltage_mv <= 4500 {
+                        b.voltage_mv = voltage_mv;
                     }
                 }
             }

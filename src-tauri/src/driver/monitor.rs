@@ -45,9 +45,14 @@ impl DeviceMonitor {
 
         std::thread::spawn(move || {
             let mut known_paths: HashSet<String> = HashSet::new();
+            let mut detector_opt = DeviceDetector::new().ok();
 
             while running.load(Ordering::SeqCst) {
-                if let Ok(mut detector) = DeviceDetector::new() {
+                if detector_opt.is_none() {
+                    detector_opt = DeviceDetector::new().ok();
+                }
+
+                if let Some(ref mut detector) = detector_opt {
                     if let Ok(current_devices) = detector.scan_compx_devices() {
                         let current_paths: HashSet<String> =
                             current_devices.iter().map(|d| d.path.clone()).collect();

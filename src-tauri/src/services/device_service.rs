@@ -131,16 +131,16 @@ impl DeviceService {
         if let Some(ref dev) = *active {
             let transport = HidTransport::new(dev);
             let (fun_type, p1, p2) = match action {
-                crate::core::models::ButtonAction::Disabled => (0, 0, 0),
-                crate::core::models::ButtonAction::MouseClick { button } => (1, button as u8, 0),
-                crate::core::models::ButtonAction::DpiSwitch { mode } => (2, mode as u8, 0),
-                crate::core::models::ButtonAction::MediaControl { command } => (3, command, 0),
-                crate::core::models::ButtonAction::RapidFire { speed, count } => (4, speed, count),
-                crate::core::models::ButtonAction::KeyboardShortcut { key_code, modifiers } => (5, key_code, modifiers),
-                crate::core::models::ButtonAction::Macro { macro_id, loop_count } => (6, macro_id, loop_count),
+                crate::core::models::ButtonAction::None => (0, 0, 0),
+                crate::core::models::ButtonAction::Click { button } => (1, button, 0),
+                crate::core::models::ButtonAction::Dpi { action } => (2, action as u8, 0),
+                crate::core::models::ButtonAction::Media { action } => (3, action as u8, 0),
+                crate::core::models::ButtonAction::FireKey { clicks, interval_ms } => (4, clicks, interval_ms),
+                crate::core::models::ButtonAction::Shortcut { modifiers, key } => (5, key, modifiers),
+                crate::core::models::ButtonAction::Macro { macro_id, loop_count } => (6, macro_id, loop_count.unwrap_or(1)),
                 crate::core::models::ButtonAction::PollingRateCycle => (7, 0, 0),
                 crate::core::models::ButtonAction::ProfileSwitch => (9, 0, 0),
-                crate::core::models::ButtonAction::SniperLock { target_dpi } => (10, (target_dpi / 50) as u8, 0),
+                crate::core::models::ButtonAction::SniperLock { dpi } => (10, (dpi / 50) as u8, 0),
             };
 
             let cmd = OutputReport8::set_button_mapping_command(button_idx, fun_type, p1, p2);

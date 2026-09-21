@@ -69,6 +69,15 @@ impl OutputReport8 {
         cmd.to_bytes()
     }
 
+    /// Authorizes and unlocks PC driver mode on the Compx mouse MCU / dongle (UsbCommandId::PCDriverStatus = 2)
+    pub fn set_driver_status_command(is_active: bool) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[3] = 1; // length 1 byte
+        payload[4] = if is_active { 1 } else { 0 };
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::PCDriverStatus as u8, payload);
+        cmd.to_bytes()
+    }
+
     /// Command to set the polling rate (Hz)
     pub fn set_polling_rate_command(rate: crate::core::models::PollingRate) -> [u8; Self::PACKET_LEN] {
         let mut payload = [0u8; 14];
@@ -363,6 +372,16 @@ mod tests {
         assert_eq!(bytes[6], 255);
         assert_eq!(bytes[7], 128);
         assert_eq!(bytes[8], 0);
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_driver_status_command_valid() {
+        let bytes = OutputReport8::set_driver_status_command(true);
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 2); // PCDriverStatus
+        assert_eq!(bytes[5], 1); // length
+        assert_eq!(bytes[6], 1); // is_active
         assert!(is_packet_valid(&bytes));
     }
 }

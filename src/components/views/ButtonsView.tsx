@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { ButtonAction } from '@/types/mouse';
+import { useTranslation } from 'react-i18next';
 
 interface MouseButtonDef {
   id: number;
@@ -57,6 +58,7 @@ export const ButtonsView: React.FC<ButtonsViewProps> = ({
   buttonMappings,
   onSaveButtonMapping,
 }) => {
+  const { t } = useTranslation();
   const [selectedButtonId, setSelectedButtonId] = useState<number>(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('standard');
   const [burstClicks, setBurstClicks] = useState<number>(3);
@@ -82,10 +84,10 @@ export const ButtonsView: React.FC<ButtonsViewProps> = ({
     setIsSaving(true);
     try {
       await onSaveButtonMapping(selectedButtonId, action);
-      setStatusMessage(`Button ${selectedButtonId + 1} remapped to: ${description}`);
+      setStatusMessage(`${t('buttons.remappedSuccess')} ${description}`);
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
-      setStatusMessage(`Error remapping button: ${err?.message || err}`);
+      setStatusMessage(`Error: ${err?.message || err}`);
     } finally {
       setIsSaving(false);
     }
@@ -102,10 +104,11 @@ export const ButtonsView: React.FC<ButtonsViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto select-none">
+      {/* Toast Alert */}
       {statusMessage && (
-        <div className="rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center justify-between">
+        <div className="rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center justify-between animate-in fade-in">
           <span>{statusMessage}</span>
-          <Button variant="ghost" size="xs" onClick={() => setStatusMessage(null)}>Dismiss</Button>
+          <Button variant="ghost" size="xs" onClick={() => setStatusMessage(null)}>{t('common.dismiss')}</Button>
         </div>
       )}
 
@@ -113,11 +116,11 @@ export const ButtonsView: React.FC<ButtonsViewProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-            <MousePointerClick className="size-4 text-red-500" />
-            Redragon M916-PRO Button Remapping Suite
+            <Sliders className="size-4 text-red-500" />
+            {t('buttons.title')}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Interactive hardware layout matching factory firmware. Click the mouse diagram or list to reassign opcodes.
+            {t('buttons.subtitle')}
           </p>
         </div>
       </div>
@@ -126,17 +129,17 @@ export const ButtonsView: React.FC<ButtonsViewProps> = ({
       <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-card/80 to-card/30 p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
         <div className="space-y-2 text-center md:text-left">
           <Badge className="bg-red-600 text-white font-semibold text-xs border-none px-2.5 py-0.5">
-            CHASSIS SCHEMATIC
+            {t('buttons.schematicBadge')}
           </Badge>
           <h3 className="text-lg font-black text-foreground uppercase tracking-tight">
-            M916-PRO Microswitch Matrix
+            {t('buttons.schematicTitle')}
           </h3>
           <p className="text-xs text-muted-foreground max-w-sm">
-            6 fully programmable physical switch locations with zero-bounce debounce filters and instant microcode dispatch.
+            {t('buttons.schematicDesc')}
           </p>
           <div className="flex items-center gap-2 pt-2 text-xs text-muted-foreground">
             <span className="size-3 rounded-full bg-red-500 animate-pulse" />
-            <span>Active Target: <strong>{selectedBtn.name}</strong></span>
+            <span>{t('buttons.activeTarget')}: <strong>{selectedBtn.name}</strong></span>
           </div>
         </div>
 

@@ -2,6 +2,7 @@
   "common": {
     "save": "Save",
     "saving": "Saving...",
+    "saved": "Saved successfully",
     "cancel": "Cancel",
     "delete": "Delete",
     "add": "Add",

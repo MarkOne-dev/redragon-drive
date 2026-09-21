@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import type { PairingState, RfTestMode } from '@/types/mouse';
 import { mouseApi } from '@/api/mouseApi';
+import { useTranslation } from 'react-i18next';
 
 interface PairingViewProps {
   pairingStatus: PairingState;
@@ -22,6 +23,7 @@ export const PairingView: React.FC<PairingViewProps> = ({
   onStartPairing,
   onCancelPairing,
 }) => {
+  const { t } = useTranslation();
   const [rfStatus, setRfStatus] = useState<string | null>(null);
 
   const isPairing = pairingStatus.state === 'Searching' || pairingStatus.state === 'Synchronizing';
@@ -41,7 +43,7 @@ export const PairingView: React.FC<PairingViewProps> = ({
       {rfStatus && (
         <div className="rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-center justify-between">
           <span>{rfStatus}</span>
-          <Button variant="ghost" size="xs" onClick={() => setRfStatus(null)}>Dismiss</Button>
+          <Button variant="ghost" size="xs" onClick={() => setRfStatus(null)}>{t('common.dismiss')}</Button>
         </div>
       )}
 
@@ -49,10 +51,10 @@ export const PairingView: React.FC<PairingViewProps> = ({
       <div>
         <h2 className="text-base font-bold text-foreground flex items-center gap-2">
           <Radio className="size-4 text-red-500" />
-          2.4GHz FastConnect Pairing Suite
+          {t('pairing.title')}
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Pair and synchronize your Redragon M916-PRO wireless mouse with the Compx USB dongle receiver.
+          {t('pairing.subtitle')}
         </p>
       </div>
 
@@ -61,11 +63,11 @@ export const PairingView: React.FC<PairingViewProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-border/40">
           <div>
             <span className="text-xs uppercase font-semibold text-muted-foreground tracking-wider">
-              Pairing State Machine
+              {t('pairing.fastConnectTitle')}
             </span>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xl font-black text-foreground">
-                Status: {pairingStatus.state}
+                {t('pairing.searching')} {pairingStatus.state}
               </span>
               {isPairing && (
                 <Loader2 className="size-4 text-red-500 animate-spin" />
@@ -80,7 +82,7 @@ export const PairingView: React.FC<PairingViewProps> = ({
                 className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5 shadow-md shadow-red-600/30"
               >
                 <Wifi className="size-3.5" />
-                Start 2.4G Pairing
+                {t('pairing.startBtn')}
               </Button>
             ) : (
               <Button
@@ -88,7 +90,7 @@ export const PairingView: React.FC<PairingViewProps> = ({
                 onClick={onCancelPairing}
                 className="text-xs gap-1.5"
               >
-                Cancel Pairing
+                {t('pairing.cancelBtn')}
               </Button>
             )}
           </div>

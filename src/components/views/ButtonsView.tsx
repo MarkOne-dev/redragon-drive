@@ -25,14 +25,12 @@ interface MouseButtonDef {
 }
 
 const MOUSE_BUTTONS: MouseButtonDef[] = [
-  { id: 0, name: 'Button 1 (Left Click)', defaultAction: 'Primary Click', location: 'Top Left', hotspot: { x: 38, y: 25 } },
-  { id: 1, name: 'Button 2 (Right Click)', defaultAction: 'Secondary Click', location: 'Top Right', hotspot: { x: 62, y: 25 } },
-  { id: 2, name: 'Button 3 (Middle Click)', defaultAction: 'Scroll Click', location: 'Wheel', hotspot: { x: 50, y: 22 } },
-  { id: 3, name: 'Button 4 (Backward)', defaultAction: 'Browser Back', location: 'Side Lower', hotspot: { x: 26, y: 58 } },
-  { id: 4, name: 'Button 5 (Forward)', defaultAction: 'Browser Forward', location: 'Side Upper', hotspot: { x: 26, y: 46 } },
-  { id: 5, name: 'Button 6 (DPI Switch)', defaultAction: 'DPI Cycle', location: 'Top Center', hotspot: { x: 50, y: 44 } },
-  { id: 6, name: 'Button 7 (Rapid Fire)', defaultAction: 'Burst 3x Click', location: 'Auxiliary', hotspot: { x: 30, y: 16 } },
-  { id: 7, name: 'Button 8 (Sniper Lock)', defaultAction: '400 DPI Precision Lock', location: 'Thumb Grip', hotspot: { x: 24, y: 70 } },
+  { id: 0, name: 'Button 1 (Left Click)', defaultAction: 'Primary Click', location: 'Main Left', hotspot: { x: 37.6, y: 78.6 } },
+  { id: 1, name: 'Button 2 (Right Click)', defaultAction: 'Secondary Click', location: 'Main Right', hotspot: { x: 10.0, y: 66.4 } },
+  { id: 2, name: 'Button 3 (Middle Click)', defaultAction: 'Scroll Click', location: 'Scroll Wheel', hotspot: { x: 30.5, y: 48.7 } },
+  { id: 3, name: 'Button 4 (Forward)', defaultAction: 'Browser Forward', location: 'Side Front', hotspot: { x: 69.9, y: 57.5 } },
+  { id: 4, name: 'Button 5 (Backward)', defaultAction: 'Browser Back', location: 'Side Rear', hotspot: { x: 79.2, y: 43.1 } },
+  { id: 5, name: 'Button 6 (DPI Switch)', defaultAction: 'DPI Cycle', location: 'Underside (Base)', hotspot: { x: 63.1, y: 86.2 } },
 ];
 
 const ACTION_CATEGORIES = [
@@ -134,7 +132,7 @@ export const ButtonsView: React.FC<ButtonsViewProps> = ({
             M916-PRO Microswitch Matrix
           </h3>
           <p className="text-xs text-muted-foreground max-w-sm">
-            8 fully programmable physical switch locations with zero-bounce debounce filters and instant microcode dispatch.
+            6 fully programmable physical switch locations with zero-bounce debounce filters and instant microcode dispatch.
           </p>
           <div className="flex items-center gap-2 pt-2 text-xs text-muted-foreground">
             <span className="size-3 rounded-full bg-red-500 animate-pulse" />
@@ -154,19 +152,28 @@ export const ButtonsView: React.FC<ButtonsViewProps> = ({
           {MOUSE_BUTTONS.map((btn) => {
             const isSelected = selectedButtonId === btn.id;
             return (
-              <button
+              <div
                 key={btn.id}
-                onClick={() => setSelectedButtonId(btn.id)}
                 style={{ top: `${btn.hotspot.y}%`, left: `${btn.hotspot.x}%` }}
-                title={`${btn.name} (${btn.location})`}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 size-7 rounded-full font-mono text-xs font-bold transition-all duration-200 flex items-center justify-center shadow-lg ${
-                  isSelected
-                    ? 'bg-red-600 text-white scale-125 ring-4 ring-red-500/40 z-20 shadow-[0_0_15px_rgba(239,68,68,0.8)]'
-                    : 'bg-card/90 text-foreground border border-border/80 hover:bg-red-500/20 hover:text-red-400 hover:scale-110 z-10'
-                }`}
+                className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10"
               >
-                {btn.id + 1}
-              </button>
+                <button
+                  onClick={() => setSelectedButtonId(btn.id)}
+                  title={`${btn.name} (${btn.location})`}
+                  className={`size-7 rounded-full font-mono text-xs font-bold transition-all duration-200 flex items-center justify-center shadow-lg ${
+                    isSelected
+                      ? 'bg-red-600 text-white scale-125 ring-4 ring-red-500/40 z-20 shadow-[0_0_15px_rgba(239,68,68,0.8)]'
+                      : 'bg-card/90 text-foreground border border-border/80 hover:bg-red-500/20 hover:text-red-400 hover:scale-110'
+                  }`}
+                >
+                  {btn.id + 1}
+                </button>
+                {btn.id === 5 && (
+                  <span className="text-[9px] font-mono font-bold bg-background/90 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap">
+                    Base DPI
+                  </span>
+                )}
+              </div>
             );
           })}
         </div>

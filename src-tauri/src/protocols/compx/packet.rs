@@ -69,6 +69,15 @@ impl OutputReport8 {
         cmd.to_bytes()
     }
 
+    /// Authorizes and unlocks PC driver mode on the Compx mouse MCU / dongle (UsbCommandId::PCDriverStatus = 2)
+    pub fn set_driver_status_command(is_active: bool) -> [u8; Self::PACKET_LEN] {
+        let mut payload = [0u8; 14];
+        payload[3] = 1; // length 1 byte
+        payload[4] = if is_active { 1 } else { 0 };
+        let cmd = Self::new(crate::protocols::compx::commands::UsbCommandId::PCDriverStatus as u8, payload);
+        cmd.to_bytes()
+    }
+
     /// Command to set the polling rate (Hz)
     pub fn set_polling_rate_command(rate: crate::core::models::PollingRate) -> [u8; Self::PACKET_LEN] {
         let mut payload = [0u8; 14];
@@ -101,26 +110,34 @@ impl OutputReport8 {
         cmd.to_bytes()
     }
 
-    /// Sets the active DPI stage index directly in MCU Flash (Address 0x0002 / currentDPI)
+    /// Sets the active DPI stage index directly in MCU Flash (Address 0x0004 / currentDPI)
+    /// Compx flash protocol requires a checksum byte: [stage_idx, 0x55 - stage_idx]
     pub fn set_active_dpi_stage_command(stage_idx: u8) -> [u8; Self::PACKET_LEN] {
-        Self::write_flash_command(0x0002, &[stage_idx])
+        let chk = 0x55u8.wrapping_sub(stage_idx);
+        Self::write_flash_command(0x0004, &[stage_idx, chk])
     }
 
     /// Configures the DPI resolution for a stage in Compx Flash (Address 0x000C + stage * 4)
-    /// Encodes xDPI, yDPI, and DPIex for PixArt PAW3395 (50-26,000 DPI)
+    /// Encodes xDPI, yDPI, DPIex, and Compx checksum (0x55 - (x + y + ex)) for PixArt PAW3395 (50-26,000 DPI)
     pub fn set_dpi_stage_command(stage_idx: u8, dpi_x: u16, dpi_y: u16) -> [u8; Self::PACKET_LEN] {
         let x_step = (dpi_x / 50).saturating_sub(1);
         let y_step = (dpi_y / 50).saturating_sub(1);
         let x_hi = (x_step >> 8) as u8;
         let y_hi = (y_step >> 8) as u8;
         let dpiex = (x_hi << 2) | (y_hi << 6);
-        let data = [x_step as u8, y_step as u8, dpiex, 0x00];
+        let b0 = x_step as u8;
+        let b1 = y_step as u8;
+        let b2 = dpiex;
+        let chk = 0x55u8.wrapping_sub(b0.wrapping_add(b1).wrapping_add(b2));
+        let data = [b0, b1, b2, chk];
         Self::write_flash_command(0x000C + (stage_idx as u16) * 4, &data)
     }
 
     /// Configures the RGB LED indicator color for a DPI stage (Address 0x002C + stage * 4)
+    /// Compx flash protocol requires a checksum byte: [R, G, B, 0x55 - (R + G + B)]
     pub fn set_dpi_color_command(stage_idx: u8, rgb: [u8; 3]) -> [u8; Self::PACKET_LEN] {
-        let data = [rgb[0], rgb[1], rgb[2], 0x00];
+        let chk = 0x55u8.wrapping_sub(rgb[0].wrapping_add(rgb[1]).wrapping_add(rgb[2]));
+        let data = [rgb[0], rgb[1], rgb[2], chk];
         Self::write_flash_command(0x002C + (stage_idx as u16) * 4, &data)
     }
 
@@ -332,9 +349,10 @@ mod tests {
         assert_eq!(bytes[0], 8);
         assert_eq!(bytes[1], 7); // WriteFlashData
         assert_eq!(bytes[3], 0); // Addr High
-        assert_eq!(bytes[4], 2); // Addr Low: 0x0002 (currentDPI)
-        assert_eq!(bytes[5], 1); // Length: 1 byte
+        assert_eq!(bytes[4], 4); // Addr Low: 0x0004 (currentDPI)
+        assert_eq!(bytes[5], 2); // Length: 2 bytes
         assert_eq!(bytes[6], 2); // Stage index: 2
+        assert_eq!(bytes[7], 0x55 - 2); // Checksum byte: 0x53
         assert!(is_packet_valid(&bytes));
     }
 
@@ -349,6 +367,7 @@ mod tests {
         assert_eq!(bytes[6], 31); // (1600 / 50) - 1 = 31
         assert_eq!(bytes[7], 31); // yDPI = 31
         assert_eq!(bytes[8], 0);  // DPIex = 0
+        assert_eq!(bytes[9], 0x55u8.wrapping_sub(31 + 31 + 0)); // Compx checksum
         assert!(is_packet_valid(&bytes));
     }
 
@@ -363,6 +382,17 @@ mod tests {
         assert_eq!(bytes[6], 255);
         assert_eq!(bytes[7], 128);
         assert_eq!(bytes[8], 0);
+        assert_eq!(bytes[9], 0x55u8.wrapping_sub(255u8.wrapping_add(128))); // Compx checksum
+        assert!(is_packet_valid(&bytes));
+    }
+
+    #[test]
+    fn test_set_driver_status_command_valid() {
+        let bytes = OutputReport8::set_driver_status_command(true);
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 2); // PCDriverStatus
+        assert_eq!(bytes[5], 1); // length
+        assert_eq!(bytes[6], 1); // is_active
         assert!(is_packet_valid(&bytes));
     }
 }

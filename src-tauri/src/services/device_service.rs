@@ -36,6 +36,11 @@ impl DeviceService {
     pub fn connect_by_path(&self, path: &str) -> Result<DeviceInfo> {
         let dev = self.backend.open_path(path)?;
 
+        // Initialize and authorize PC driver session on the Compx MCU / dongle
+        let transport = HidTransport::new(&dev);
+        let auth_cmd = OutputReport8::set_driver_status_command(true);
+        let _ = transport.write_output_report(&auth_cmd);
+
         let mut detector = DeviceDetector::new()?;
         let all = detector.scan_all_hid_devices()?;
         let info = all
@@ -56,6 +61,11 @@ impl DeviceService {
     /// Disconnects the currently active device
     pub fn disconnect(&self) {
         let mut active = self.active_device.lock().unwrap();
+        if let Some(ref dev) = *active {
+            let transport = HidTransport::new(dev);
+            let unauth_cmd = OutputReport8::set_driver_status_command(false);
+            let _ = transport.write_output_report(&unauth_cmd);
+        }
         *active = None;
         let mut active_inf = self.active_info.lock().unwrap();
         *active_inf = None;

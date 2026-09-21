@@ -7,8 +7,7 @@ import {
   RefreshCw, 
   PowerOff,
   Sun,
-  Moon,
-  Languages
+  Moon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,15 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectProfile,
 }) => {
   const { theme, setTheme } = useTheme();
-  const { t, i18n } = useTranslation();
-
-  const toggleLanguage = () => {
-    const nextLang = i18n.language.startsWith('es') ? 'en' : 'es';
-    i18n.changeLanguage(nextLang);
-    localStorage.setItem('rd_app_language', nextLang);
-  };
-
-  const currentLang = i18n.language.startsWith('es') ? 'ES' : 'EN';
+  const { t } = useTranslation();
 
   return (
     <header className="h-16 border-b border-border/50 bg-card/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
@@ -139,17 +130,6 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
         </div>
 
-        {/* Language Switcher */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={toggleLanguage}
-          title={t('header.language')}
-          className="gap-1.5 text-xs font-mono font-bold border-border/60 hover:border-red-500/40 text-foreground"
-        >
-          <Languages className="size-3.5 text-red-500" />
-          <span>{currentLang}</span>
-        </Button>
 
         <Button
           variant="outline"

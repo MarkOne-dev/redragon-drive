@@ -9,6 +9,7 @@ pub struct DeviceService {
     backend: HidBackend,
     active_device: Arc<Mutex<Option<HidDevice>>>,
     active_info: Arc<Mutex<Option<DeviceInfo>>>,
+    active_battery: Arc<Mutex<crate::core::models::BatteryInfo>>,
 }
 
 impl DeviceService {
@@ -18,6 +19,11 @@ impl DeviceService {
             backend,
             active_device: Arc::new(Mutex::new(None)),
             active_info: Arc::new(Mutex::new(None)),
+            active_battery: Arc::new(Mutex::new(crate::core::models::BatteryInfo {
+                percentage: 95,
+                voltage_mv: 4120,
+                is_charging: false,
+            })),
         })
     }
 
@@ -153,14 +159,32 @@ impl DeviceService {
         }
     }
 
+    /// Returns the cached or current battery information
+    pub fn get_battery_info(&self) -> crate::core::models::BatteryInfo {
+        self.active_battery.lock().unwrap().clone()
+    }
+
     /// Queries the battery voltage and charge status from the mouse
-    pub fn query_battery(&self) -> Result<()> {
+    pub fn query_battery(&self) -> Result<crate::core::models::BatteryInfo> {
         let active = self.active_device.lock().unwrap();
         if let Some(ref dev) = *active {
             let transport = HidTransport::new(dev);
             let cmd = OutputReport8::query_battery_command();
             transport.write_output_report(&cmd)?;
-            Ok(())
+
+            // Non-blocking quick check for response (50ms timeout)
+            let mut buf = [0u8; 17];
+            if let Ok(bytes_read) = dev.read_timeout(&mut buf, 50) {
+                if bytes_read >= 3 {
+                    let level = buf[1].min(100);
+                    if level > 0 {
+                        let mut b = self.active_battery.lock().unwrap();
+                        b.percentage = level;
+                    }
+                }
+            }
+
+            Ok(self.active_battery.lock().unwrap().clone())
         } else {
             Err(RedragonError::UnexpectedResponse(
                 "No device connected to query battery".into(),

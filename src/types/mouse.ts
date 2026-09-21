@@ -94,3 +94,15 @@ export interface AppConfig {
 }
 
 export type RfTestMode = 'LowCarrier' | 'MtkMode' | 'AllReceived';
+
+export type DeviceEvent =
+  | { type: 'Connected'; payload: DeviceInfo }
+  | { type: 'Disconnected'; payload: string };
+
+export interface DeviceFullState {
+  device: DeviceInfo | null;
+  battery: BatteryInfo;
+  polling_rate: number;
+  current_dpi_stage: number;
+  sensor: SensorConfig;
+}

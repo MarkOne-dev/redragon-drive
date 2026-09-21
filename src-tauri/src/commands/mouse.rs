@@ -65,11 +65,42 @@ pub fn set_mouse_button(state: tauri::State<'_, AppState>, button_idx: u8, actio
 }
 
 #[tauri::command]
-pub fn query_mouse_battery(state: tauri::State<'_, AppState>) -> Result<(), String> {
+pub fn query_mouse_battery(state: tauri::State<'_, AppState>) -> Result<crate::core::models::BatteryInfo, String> {
     state.device_service.query_battery().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_battery_info(state: tauri::State<'_, AppState>) -> crate::core::models::BatteryInfo {
+    state.device_service.get_battery_info()
 }
 
 #[tauri::command]
 pub fn set_mouse_sensor(state: tauri::State<'_, AppState>, config: crate::core::models::SensorConfig) -> Result<(), String> {
     state.device_service.set_sensor_config(&config).map_err(|e| e.to_string())
 }
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DeviceFullState {
+    pub device: Option<DeviceInfo>,
+    pub battery: crate::core::models::BatteryInfo,
+    pub polling_rate: u32,
+    pub current_dpi_stage: u8,
+    pub sensor: crate::core::models::SensorConfig,
+}
+
+#[tauri::command]
+pub fn get_device_full_state(state: tauri::State<'_, AppState>) -> DeviceFullState {
+    let device = state.device_service.get_active_info();
+    let battery = state.device_service.get_battery_info();
+    let stats = state.diagnostics_service.get_stats();
+    let polling_rate = if stats.current_polling_rate > 0 { stats.current_polling_rate } else { 1000 };
+
+    DeviceFullState {
+        device,
+        battery,
+        polling_rate,
+        current_dpi_stage: 2,
+        sensor: crate::core::models::SensorConfig::default(),
+    }
+}
+

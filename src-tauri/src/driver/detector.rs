@@ -20,6 +20,8 @@ impl DeviceDetector {
 
         for dev in self.api.device_list() {
             if dev.vendor_id() == COMPX_VENDOR_ID {
+                let is_wired = dev.product_id() == 0xF55E;
+                let is_dongle = !is_wired;
                 devices.push(DeviceInfo {
                     vid: dev.vendor_id(),
                     pid: dev.product_id(),
@@ -28,9 +30,14 @@ impl DeviceDetector {
                     product: dev.product_string().map(|s| s.to_string()),
                     serial_number: dev.serial_number().map(|s| s.to_string()),
                     interface_number: dev.interface_number(),
+                    is_wired,
+                    is_dongle,
                 });
             }
         }
+
+        // Prioritize vendor communication channel (Interface 1) first
+        devices.sort_by_key(|d| if d.interface_number == 1 { 0 } else { 1 });
 
         Ok(devices)
     }
@@ -41,6 +48,8 @@ impl DeviceDetector {
         let mut devices = Vec::new();
 
         for dev in self.api.device_list() {
+            let is_wired = dev.vendor_id() == COMPX_VENDOR_ID && dev.product_id() == 0xF55E;
+            let is_dongle = dev.vendor_id() == COMPX_VENDOR_ID && !is_wired;
             devices.push(DeviceInfo {
                 vid: dev.vendor_id(),
                 pid: dev.product_id(),
@@ -49,9 +58,12 @@ impl DeviceDetector {
                 product: dev.product_string().map(|s| s.to_string()),
                 serial_number: dev.serial_number().map(|s| s.to_string()),
                 interface_number: dev.interface_number(),
+                is_wired,
+                is_dongle,
             });
         }
 
         Ok(devices)
     }
 }
+

@@ -96,13 +96,17 @@ export function App() {
     try {
       const devices = await mouseApi.scanDevices();
       if (devices && devices.length > 0) {
-        const primary = devices[0];
+        const primary = devices.find((d) => d.interface_number === 1) || devices[0];
         setDevice(primary);
-        await mouseApi.connectDevice(primary.path);
-        const fullState = await mouseApi.getDeviceFullState();
-        if (fullState.battery) setBattery(fullState.battery);
-        if (fullState.polling_rate) setPollingRate(fullState.polling_rate as PollingRateHz);
-        if (fullState.sensor) setSensorConfig(fullState.sensor);
+        try {
+          await mouseApi.connectDevice(primary.path);
+          const fullState = await mouseApi.getDeviceFullState();
+          if (fullState.battery) setBattery(fullState.battery);
+          if (fullState.polling_rate) setPollingRate(fullState.polling_rate as PollingRateHz);
+          if (fullState.sensor) setSensorConfig(fullState.sensor);
+        } catch (connErr) {
+          console.warn('Device detected but could not establish HID control session:', connErr);
+        }
       } else {
         setDevice(null);
       }

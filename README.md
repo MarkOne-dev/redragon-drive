@@ -34,31 +34,6 @@ High-performance, modern, memory-safe gaming mouse management driver and desktop
 
 ---
 
-## Architecture Overview
-
-```
-redragon-drive/
-├── src/                          # Modern React 19 / Vite / Tailwind CSS v4 frontend
-│   ├── api/                      # Strongly typed Tauri IPC bridge (mouseApi)
-│   ├── components/
-│   │   ├── layout/               # Header (telemetry, battery, status), Sidebar navigation
-│   │   ├── views/                # Dashboard, Performance, Buttons, Sensor, Pairing, Diagnostics, Settings
-│   │   └── ui/                   # shadcn / Base UI components
-│   └── types/                    # Domain models matching the Rust backend
-│
-└── src-tauri/                    # Native Rust backend (Tauri v2)
-    ├── src/
-    │   ├── core/                 # Typed errors (thiserror), domain models, IQR moving-window calculator
-    │   ├── driver/               # Safe HIDAPI transport with microcontroller delay guards, device detector & monitor
-    │   ├── protocols/            # Byte-exact Compx (GamingPro2635) & Nordic RF packet serialization and CRC
-    │   ├── services/             # Business coordinators (Device, Pairing, Diagnostics, Config)
-    │   └── commands/             # Tauri IPC invoke handlers
-    ├── capabilities/             # Tauri security capabilities
-    └── Cargo.toml                # Native dependencies
-```
-
----
-
 ## Getting Started
 
 ### Prerequisites
@@ -66,7 +41,7 @@ redragon-drive/
 - [Rust toolchain](https://www.rust-lang.org/) (1.80+)
 - Linux HID development headers (`libudev-dev`) or Windows / macOS platform dependencies
 
-### Installation
+### Installation from Source
 
 ```bash
 # Clone the repository
@@ -87,6 +62,94 @@ bun run tauri dev
 bun run dev
 ```
 
+### Building Packages for Linux
+
+```bash
+# Compile and generate Linux release bundles (.AppImage, .deb, .rpm)
+NO_STRIP=true bun run tauri build
+```
+
+---
+
+## Linux Installation by Distribution
+
+### 1. Arch Linux / CachyOS / Manjaro / EndeavourOS
+
+#### Option A: Standalone AppImage (Fastest)
+```bash
+chmod +x "Redragon M916 Suite_0.3.0_amd64.AppImage"
+./"Redragon M916 Suite_0.3.0_amd64.AppImage"
+```
+If your system environment lacks FUSE2, run with the extraction flag:
+```bash
+./"Redragon M916 Suite_0.3.0_amd64.AppImage" --appimage-extract-and-run
+```
+
+#### Option B: Convert and Install via debtap
+```bash
+# Install debtap if not present (available in AUR: yay -S debtap)
+sudo debtap -u
+debtap "Redragon M916 Suite_0.3.0_amd64.deb"
+sudo pacman -U redragon-m916-suite-*.pkg.tar.zst
+```
+
+#### Option C: Native Build on Arch / CachyOS
+```bash
+sudo pacman -S --needed base-devel webkit2gtk-4.1 libsoup3 openssl libappindicator-gtk3
+bun install
+NO_STRIP=true bun run tauri build
+```
+
+---
+
+### 2. Ubuntu / Debian / Linux Mint / Pop!_OS
+
+Install the generated `.deb` package:
+```bash
+sudo apt install ./"Redragon M916 Suite_0.3.0_amd64.deb"
+```
+Or with `dpkg`:
+```bash
+sudo dpkg -i ./"Redragon M916 Suite_0.3.0_amd64.deb"
+sudo apt-get install -f
+```
+
+---
+
+### 3. Fedora / RHEL / openSUSE
+
+Install the generated `.rpm` package:
+```bash
+# Fedora / RHEL
+sudo dnf install ./"Redragon M916 Suite-0.3.0-1.x86_64.rpm"
+
+# openSUSE
+sudo zypper install ./"Redragon M916 Suite-0.3.0-1.x86_64.rpm"
+```
+
+---
+
+### 4. Universal Linux (AppImage)
+
+Compatible with any Linux distribution with modern glibc:
+```bash
+chmod +x "Redragon M916 Suite_0.3.0_amd64.AppImage"
+./"Redragon M916 Suite_0.3.0_amd64.AppImage"
+```
+
+---
+
+## USB Permissions (udev rules)
+
+To allow the application to communicate with the mouse and 2.4GHz wireless dongle via `/dev/hidraw*` without requiring superuser (root) privileges, add the following udev rule:
+
+```bash
+echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="3554", MODE="0666"' | sudo tee /etc/udev/rules.d/99-redragon.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+---
+
 ### Running Tests
 
 ```bash
@@ -102,3 +165,4 @@ bun run build
 
 ## License
 MIT License
+

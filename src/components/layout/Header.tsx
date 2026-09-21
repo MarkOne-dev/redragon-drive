@@ -20,6 +20,8 @@ interface HeaderProps {
   isScanning: boolean;
   onScan: () => void;
   onDisconnect: () => void;
+  activeProfile: number;
+  onSelectProfile: (profile: number) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   isScanning,
   onScan,
   onDisconnect,
+  activeProfile,
+  onSelectProfile,
 }) => {
   const { theme, setTheme } = useTheme();
 
@@ -102,8 +106,26 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Quick Controls */}
-      <div className="flex items-center gap-2">
+      {/* Quick Controls & Profile Switcher */}
+      <div className="flex items-center gap-3">
+        {/* Profile Pill Switcher */}
+        <div className="flex items-center gap-1 bg-background/60 border border-border/80 rounded-lg p-0.5 text-xs">
+          <span className="text-[10px] text-muted-foreground uppercase font-semibold px-1.5 font-mono">Profile</span>
+          {[1, 2, 3].map((p) => (
+            <button
+              key={p}
+              onClick={() => onSelectProfile(p)}
+              className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all ${
+                activeProfile === p
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              P{p}
+            </button>
+          ))}
+        </div>
+
         <Button
           variant="outline"
           size="sm"

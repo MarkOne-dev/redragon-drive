@@ -54,8 +54,19 @@ export function App() {
     max_polling_rate: 1000,
   });
 
+  const [activeProfile, setActiveProfile] = useState<number>(() => {
+    const saved = localStorage.getItem('rd_active_profile');
+    return saved ? Number(saved) : 1;
+  });
+
   const [pollingRate, setPollingRate] = useState<PollingRateHz>(1000);
-  const [dpiStages, setDpiStages] = useState<DpiStageConfig[]>(DEFAULT_DPI_STAGES);
+  const [dpiStages, setDpiStages] = useState<DpiStageConfig[]>(() => {
+    const saved = localStorage.getItem('rd_profile_1_dpi');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return DEFAULT_DPI_STAGES;
+  });
   const [activeStageIndex, setActiveStageIndex] = useState<number>(2); // Default to 1600 DPI
   const [sensorConfig, setSensorConfig] = useState<SensorConfig>(DEFAULT_SENSOR_CONFIG);
   const [buttonMappings, setButtonMappings] = useState<Record<number, ButtonAction>>({});
@@ -67,6 +78,17 @@ export function App() {
     default_dpi_stage: 2,
     language: 'en',
   });
+
+  const handleSelectProfile = (p: number) => {
+    setActiveProfile(p);
+    localStorage.setItem('rd_active_profile', String(p));
+    const savedDpi = localStorage.getItem(`rd_profile_${p}_dpi`);
+    if (savedDpi) {
+      try {
+        setDpiStages(JSON.parse(savedDpi));
+      } catch {}
+    }
+  };
 
   // Scan for connected Compx / Redragon mice and hydrate full state
   const scanDevices = useCallback(async () => {
@@ -101,11 +123,13 @@ export function App() {
     setPollingRate(hz);
   };
 
-  const handleUpdateDpiStage = async (stageIdx: number, dpi: number, rgb: [number, number, number]) => {
-    await mouseApi.setDpi(stageIdx, dpi, rgb[0], rgb[1], rgb[2]);
-    setDpiStages((prev) =>
-      prev.map((s, idx) => (idx === stageIdx ? { ...s, dpi_x: dpi, dpi_y: dpi, rgb } : s))
-    );
+  const handleUpdateDpiStage = async (stageIdx: number, dpiX: number, dpiY: number, rgb: [number, number, number]) => {
+    await mouseApi.setDpi(stageIdx, dpiX, rgb[0], rgb[1], rgb[2]);
+    setDpiStages((prev) => {
+      const updated = prev.map((s, idx) => (idx === stageIdx ? { ...s, dpi_x: dpiX, dpi_y: dpiY, rgb } : s));
+      localStorage.setItem(`rd_profile_${activeProfile}_dpi`, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleSaveButton = async (buttonIdx: number, action: ButtonAction) => {
@@ -199,6 +223,8 @@ export function App() {
         isScanning={isScanning}
         onScan={scanDevices}
         onDisconnect={handleDisconnect}
+        activeProfile={activeProfile}
+        onSelectProfile={handleSelectProfile}
       />
 
       {/* Main App Workspace */}

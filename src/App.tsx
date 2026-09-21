@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Sidebar, type NavTab } from '@/components/layout/Sidebar';
+import { SplashScreen } from '@/components/layout/SplashScreen';
+import { DeviceLockScreen } from '@/components/layout/DeviceLockScreen';
 import { DashboardView } from '@/components/views/DashboardView';
 import { PerformanceView } from '@/components/views/PerformanceView';
 import { ButtonsView } from '@/components/views/ButtonsView';
@@ -74,6 +76,8 @@ export function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [isSplashVisible, setIsSplashVisible] = useState<boolean>(true);
+  const [unlockingName, setUnlockingName] = useState<string | null>(null);
   const [battery, setBattery] = useState<BatteryInfo>({ percentage: 95, voltage_mv: 4120, is_charging: false });
   const [stats, setStats] = useState<MouseStats>({
     left_clicks: 0,
@@ -164,7 +168,15 @@ export function App() {
       const devices = await mouseApi.scanDevices();
       if (devices && devices.length > 0) {
         const primary = devices.find((d) => d.interface_number === 1) || devices[0];
-        setDevice(primary);
+        setDevice((prev) => {
+          if (!prev) {
+            setUnlockingName(primary.product || 'Redragon M916-PRO');
+            setTimeout(() => {
+              setUnlockingName(null);
+            }, 750);
+          }
+          return primary;
+        });
         try {
           await mouseApi.connectDevice(primary.path);
           const fullState = await mouseApi.getDeviceFullState();
@@ -311,6 +323,10 @@ export function App() {
     scanDevices();
     mouseApi.getConfig().then(setConfig).catch(console.error);
 
+    const splashTimer = setTimeout(() => {
+      setIsSplashVisible(false);
+    }, 1400);
+
     // Subscribe to hotplug USB events
     let unlistenFn: (() => void) | null = null;
     mouseApi.onDeviceChanged((event) => {
@@ -318,6 +334,7 @@ export function App() {
         scanDevices();
       } else if (event.type === 'Disconnected') {
         setDevice(null);
+        setUnlockingName(null);
       }
     }).then((unlisten) => {
       unlistenFn = unlisten;
@@ -331,6 +348,7 @@ export function App() {
     }, 3000);
 
     return () => {
+      clearTimeout(splashTimer);
       clearInterval(timer);
       if (unlistenFn) unlistenFn();
     };
@@ -339,91 +357,107 @@ export function App() {
   const activeStage = dpiStages[activeStageIndex] || dpiStages[0];
   const dpiColor = `rgb(${activeStage.rgb[0]}, ${activeStage.rgb[1]}, ${activeStage.rgb[2]})`;
 
+  const isLocked = !device || unlockingName !== null;
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans antialiased">
-      {/* Top Application Header */}
-      <Header
-        device={device}
-        battery={battery}
-        isScanning={isScanning}
-        onScan={scanDevices}
-        onDisconnect={handleDisconnect}
-        activeProfile={activeProfile}
-        onSelectProfile={handleSelectProfile}
-      />
+      {/* Initial Splash Loading Screen */}
+      <SplashScreen isVisible={isSplashVisible} />
 
-      {/* Main App Workspace */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Navigation Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-          pollingRateHz={pollingRate}
+      {/* Device Lock Screen when disconnected */}
+      {!isSplashVisible && isLocked ? (
+        <DeviceLockScreen
+          isScanning={isScanning}
+          onScan={scanDevices}
+          detectedName={unlockingName}
         />
+      ) : (
+        <>
+          {/* Top Application Header */}
+          <Header
+            device={device}
+            battery={battery}
+            isScanning={isScanning}
+            onScan={scanDevices}
+            onDisconnect={handleDisconnect}
+            activeProfile={activeProfile}
+            onSelectProfile={handleSelectProfile}
+          />
 
-        {/* Dynamic Content View */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-background to-card/30">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              device={device}
-              battery={battery}
-              stats={stats}
-              currentDpi={activeStage.dpi_x}
-              dpiColor={dpiColor}
+          {/* Main App Workspace */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Navigation Sidebar */}
+            <Sidebar
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
               pollingRateHz={pollingRate}
-              onNavigate={setActiveTab}
-              onRefreshBattery={handleRefreshBattery}
             />
-          )}
 
-          {activeTab === 'performance' && (
-            <PerformanceView
-              currentPollingRate={pollingRate}
-              onSetPollingRate={handleSetPollingRate}
-              dpiStages={dpiStages}
-              activeStageIndex={activeStageIndex}
-              onSelectActiveStage={handleSelectActiveStage}
-              onUpdateDpiStage={handleUpdateDpiStage}
-            />
-          )}
+            {/* Dynamic Content View */}
+            <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-background to-card/30">
+              {activeTab === 'dashboard' && (
+                <DashboardView
+                  device={device}
+                  battery={battery}
+                  stats={stats}
+                  currentDpi={activeStage.dpi_x}
+                  dpiColor={dpiColor}
+                  pollingRateHz={pollingRate}
+                  onNavigate={setActiveTab}
+                  onRefreshBattery={handleRefreshBattery}
+                />
+              )}
 
-          {activeTab === 'buttons' && (
-            <ButtonsView
-              buttonMappings={buttonMappings}
-              onSaveButtonMapping={handleSaveButton}
-            />
-          )}
+              {activeTab === 'performance' && (
+                <PerformanceView
+                  currentPollingRate={pollingRate}
+                  onSetPollingRate={handleSetPollingRate}
+                  dpiStages={dpiStages}
+                  activeStageIndex={activeStageIndex}
+                  onSelectActiveStage={handleSelectActiveStage}
+                  onUpdateDpiStage={handleUpdateDpiStage}
+                />
+              )}
 
-          {activeTab === 'sensor' && (
-            <SensorView
-              sensorConfig={sensorConfig}
-              onSaveSensorConfig={handleSaveSensor}
-            />
-          )}
+              {activeTab === 'buttons' && (
+                <ButtonsView
+                  buttonMappings={buttonMappings}
+                  onSaveButtonMapping={handleSaveButton}
+                />
+              )}
 
-          {activeTab === 'pairing' && (
-            <PairingView
-              pairingStatus={pairingStatus}
-              onStartPairing={handleStartPairing}
-              onCancelPairing={handleCancelPairing}
-            />
-          )}
+              {activeTab === 'sensor' && (
+                <SensorView
+                  sensorConfig={sensorConfig}
+                  onSaveSensorConfig={handleSaveSensor}
+                />
+              )}
 
-          {activeTab === 'diagnostics' && (
-            <DiagnosticsView
-              stats={stats}
-              onRefreshStats={handleRefreshStats}
-            />
-          )}
+              {activeTab === 'pairing' && (
+                <PairingView
+                  pairingStatus={pairingStatus}
+                  onStartPairing={handleStartPairing}
+                  onCancelPairing={handleCancelPairing}
+                />
+              )}
 
-          {activeTab === 'settings' && (
-            <SettingsView
-              config={config}
-              onSaveConfig={handleSaveConfig}
-            />
-          )}
-        </main>
-      </div>
+              {activeTab === 'diagnostics' && (
+                <DiagnosticsView
+                  stats={stats}
+                  onRefreshStats={handleRefreshStats}
+                />
+              )}
+
+              {activeTab === 'settings' && (
+                <SettingsView
+                  config={config}
+                  onSaveConfig={handleSaveConfig}
+                />
+              )}
+            </main>
+          </div>
+        </>
+      )}
     </div>
   );
 }

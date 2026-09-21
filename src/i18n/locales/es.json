@@ -30,6 +30,27 @@
     "disconnected": "Dispositivo Desconectado",
     "language": "Idioma"
   },
+  "splash": {
+    "title": "Redragon M916-PRO 1K",
+    "subtitle": "Inicializando hardware y controladores de periféricos...",
+    "scanning": "Escaneando puertos USB Compx..."
+  },
+  "lockScreen": {
+    "title": "Dispositivo Desconectado",
+    "subtitle": "Conecta tu Redragon M916-PRO para acceder a la suite de configuración",
+    "statusWaiting": "Esperando conexión física...",
+    "wiredTitle": "Conexión Cable USB-C",
+    "wiredDesc": "Conecta el cable al puerto frontal del mouse para respuesta instantánea de 1000Hz Ultra-Low Latency.",
+    "wirelessTitle": "Receptor Inalámbrico 2.4GHz",
+    "wirelessDesc": "Inserta el dongle nano-USB Compx en cualquier puerto de tu computadora.",
+    "scanNow": "Escanear Periféricos",
+    "scanning": "Buscando mouse Redragon...",
+    "deviceFound": "¡Dispositivo Detectado! Abriendo suite...",
+    "featuresTitle": "Características del Periférico",
+    "sensorSpec": "Sensor PixArt PAW3395 (26,000 DPI · 650 IPS)",
+    "mcuSpec": "Microcontrolador Compx CX52850P de Alto Rendimiento",
+    "wirelessSpec": "Conexión Dual USB-C & Dongle 2.4G Ultra-Fast"
+  },
   "nav": {
     "dashboard": "Panel Principal",
     "performance": "Rendimiento",
